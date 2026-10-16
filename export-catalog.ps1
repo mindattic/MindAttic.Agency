@@ -1,0 +1,28 @@
+[CmdletBinding()]
+param([string]$WorkspaceRoot,[string]$GlobalClaudeRoot = "$env:USERPROFILE\.claude",[string]$OutputPath)
+$ErrorActionPreference='Stop'
+if ([string]::IsNullOrWhiteSpace($WorkspaceRoot)) { $WorkspaceRoot = Split-Path -Parent $PSScriptRoot }
+if ([string]::IsNullOrWhiteSpace($OutputPath)) { $OutputPath = Join-Path $PSScriptRoot 'command-catalog.json' }
+$items = [System.Collections.Generic.List[object]]::new()
+function Add-File([string]$scope,[string]$project,[string]$kind,[string]$path) {
+  if (Test-Path -LiteralPath $path -PathType Leaf) {
+    $base = ([IO.Path]::GetFullPath($WorkspaceRoot).TrimEnd('\') + '\')
+    $full = [IO.Path]::GetFullPath($path)
+    $rel = if ($full.StartsWith($base,[StringComparison]::OrdinalIgnoreCase)) { $full.Substring($base.Length) } else { $full }
+    $name = [IO.Path]::GetFileNameWithoutExtension($path)
+    $items.Add([ordered]@{scope=$scope;project=$project;kind=$kind;name=$name;path=$rel})
+  }
+}
+$dirs = Get-ChildItem -LiteralPath $WorkspaceRoot -Recurse -Directory -Force -ErrorAction SilentlyContinue |
+  Where-Object { $_.Name -notin @('.git','.vs','_dropbox','node_modules','PackageCache','mindattic-agent-standard','codex-standard') -and ((Test-Path (Join-Path $_.FullName '.git')) -or (Test-Path (Join-Path $_.FullName '.claude'))) }
+foreach($d in $dirs) {
+  foreach($f in Get-ChildItem (Join-Path $d.FullName '.claude\commands') -File -ErrorAction SilentlyContinue){ Add-File 'project' $d.Name 'command' $f.FullName }
+  foreach($f in Get-ChildItem (Join-Path $d.FullName '.claude\skills') -File -Recurse -ErrorAction SilentlyContinue){ Add-File 'project' $d.Name 'skill' $f.FullName }
+  foreach($f in Get-ChildItem (Join-Path $d.FullName '.claude\hooks') -File -ErrorAction SilentlyContinue){ Add-File 'project' $d.Name 'hook' $f.FullName }
+  Add-File 'project' $d.Name 'instructions' (Join-Path $d.FullName 'CLAUDE.md')
+}
+foreach($f in Get-ChildItem (Join-Path $GlobalClaudeRoot 'commands') -File -ErrorAction SilentlyContinue){ Add-File 'global' 'global' 'command' $f.FullName }
+Add-File 'global' 'global' 'instructions' (Join-Path $GlobalClaudeRoot 'CLAUDE.md')
+$doc = [ordered]@{standard='MindAttic Agent Standard';protocolVersion='1.0';generatedAt=(Get-Date).ToUniversalTime().ToString('o');items=$items}
+$doc | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $OutputPath -Encoding UTF8
+Write-Output "wrote $($items.Count) entries to $OutputPath"

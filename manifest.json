@@ -1,0 +1,11 @@
+{
+  "standardName": "MindAttic Agent Standard",
+  "protocolVersion": "1.0",
+  "discovery": ["MINDATTIC_AGENT.md", "AGENTS.md", "CLAUDE.md", "CODEX.md", "GEMINI.md", "KIMI.md", "DEEPSEEK.md"],
+  "clients": ["claude", "openai", "gemini", "kimi", "deepseek", "local", "other"],
+  "runner": "prose-agent.ps1",
+  "catalog": "command-catalog.json",
+  "projectPointers": "AGENTS.md",
+  "scope": "workspace and project",
+  "compatibility": { "codex-standard/agent": "legacy path; use mindattic-agent-standard" }
+}
