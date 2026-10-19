@@ -23,3 +23,4 @@ _Nothing recorded yet._
 |---|---|---|---|---|---|
 | MAT-T1 | 2026-10-18 | docs | closed | Start the permanent ticket log in the workflow database | — |
 | MAT-T2 | 2026-10-18 | chore | closed | Shared global commands get their portable pointers here (from install.ps1), so any LLM client finds them | — |
+| MAT-T3 | 2026-10-18 | chore | closed | Regenerate mindattic-agent-standard/command-catalog.json to reflect current repo/command state | — |
