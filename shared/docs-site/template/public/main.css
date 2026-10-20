@@ -153,6 +153,14 @@ body {
 [data-bs-theme=dark] article tbody td { border: 1px solid var(--ma-border); vertical-align: top; }
 [data-bs-theme=dark] article tbody tr:hover { background: rgba(255, 255, 255, .025); }
 
+/* "In this article" prints its full length down the side: no sticky box with its own scrollbar,
+   only the browser's. */
+body > main > .affix {
+  position: static !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
 /* Side navigation and the "In this article" outline */
 [data-bs-theme=dark] .toc,
 [data-bs-theme=dark] .affix {
