@@ -173,6 +173,9 @@ foreach ($srcRel in $pages.Keys) {
     [IO.File]::WriteAllText($dest, (($outLines -join "`n") + "`n"), (New-Object Text.UTF8Encoding $false))
 }
 
+# DocFX copies only template files it already knows (logo.svg), so the favicon is staged as a resource.
+Copy-Item -LiteralPath (Join-Path $Template 'favicon.svg') -Destination (Join-Path $Out 'favicon.svg')
+
 if (-not $pages.Contains('README.md')) {
     [IO.File]::WriteAllText((Join-Path $Out 'index.md'), "# $Repo`n`nThis repository has no README.md yet.`n", (New-Object Text.UTF8Encoding $false))
 }
