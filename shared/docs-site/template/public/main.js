@@ -25,7 +25,9 @@ export default {
     const top = document.createElement('button')
     top.type = 'button'
     top.className = 'ma-top'
-    top.textContent = 'Back to Top'
+    top.title = 'Back to top'
+    top.setAttribute('aria-label', 'Back to top')
+    top.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="12,5.94 19,18.06 5,18.06"/></svg>'
     top.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }))
     document.body.appendChild(top)
     const update = () => {

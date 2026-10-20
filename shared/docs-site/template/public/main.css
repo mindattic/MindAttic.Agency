@@ -171,20 +171,23 @@ body > main > .affix {
   align-self: flex-start;
 }
 
-/* Back to Top: the mindattic.com button look (dark, red border, red on hover). */
+/* Back to Top: a rounded square holding a centered equilateral triangle, in the mindattic.com
+   button look (dark, red border, red on hover). */
 .ma-top {
   position: fixed;
   right: 1.5rem;
   bottom: 1.5rem;
   z-index: 1030;
-  padding: .45rem .9rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 2px solid #FF0033;
-  border-radius: .5rem;
+  border-radius: .6rem;
   background: #13161b;
   color: #fff;
-  font-family: 'Outfit', system-ui, sans-serif;
-  font-size: .85rem;
-  font-weight: 600;
   cursor: pointer;
   opacity: 0;
   visibility: hidden;
@@ -192,6 +195,7 @@ body > main > .affix {
   transition: opacity .28s cubic-bezier(.4, 0, .2, 1), transform .28s cubic-bezier(.4, 0, .2, 1),
               visibility .28s, background-color .28s cubic-bezier(.4, 0, .2, 1);
 }
+.ma-top svg { width: 70%; height: 70%; fill: currentColor; display: block; }
 .ma-top.show { opacity: 1; visibility: visible; transform: none; }
 .ma-top:hover, .ma-top:focus-visible { background: #FF0033; border-color: #ff4d70; }
 [data-bs-theme=light] .ma-top { background: #fff; color: #000; }
