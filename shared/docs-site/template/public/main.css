@@ -71,6 +71,16 @@
 [data-bs-theme=dark] .navbar-brand { color: #fff; }
 [data-bs-theme=light] .navbar-brand { color: #000; }
 
+/* Outfit is the base font: Bootstrap's font variables feed body, nav, search, buttons and tooltips. */
+:root,
+[data-bs-theme=dark],
+[data-bs-theme=light] {
+  --bs-font-sans-serif: 'Outfit', system-ui, sans-serif;
+  --bs-body-font-family: 'Outfit', system-ui, sans-serif;
+  --bs-btn-font-family: 'Outfit', system-ui, sans-serif;
+}
+input, button, select, textarea { font-family: inherit; }
+
 body {
   font-family: 'Outfit', system-ui, sans-serif;
   font-size: 15px;
