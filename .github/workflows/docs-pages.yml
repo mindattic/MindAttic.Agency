@@ -1,0 +1,82 @@
+# Reusable: every MindAttic repo publishes its docs site to GitHub Pages through this one workflow.
+# A repo opts in with the thin caller written by shared/docs-site/adopt-docs-site.ps1.
+name: docs-pages
+
+on:
+  workflow_call:
+    inputs:
+      api:
+        description: Generate an API reference from the repo's .csproj files.
+        type: boolean
+        default: false
+      runs-on:
+        description: Runner; use windows-latest for Windows-only (WPF/WinForms) projects that need an API reference.
+        type: string
+        default: ubuntu-latest
+      dotnet-version:
+        type: string
+        default: 10.0.x
+      docfx-version:
+        type: string
+        default: 2.81.0
+      toolkit-ref:
+        description: MindAttic.Toolkit ref to build with.
+        type: string
+        default: main
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.repository }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: mindattic/MindAttic.Toolkit
+          ref: ${{ inputs.toolkit-ref }}
+          path: .mindattic-toolkit
+          sparse-checkout: shared/docs-site
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ inputs.dotnet-version }}
+
+      - name: Install DocFX
+        shell: pwsh
+        run: dotnet tool install -g docfx --version ${{ inputs.docfx-version }}
+
+      - name: Build site
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP 'docs-site'
+          $api = '${{ inputs.api }}' -eq 'true'
+          ./.mindattic-toolkit/shared/docs-site/build-docs-site.ps1 `
+            -Root $env:GITHUB_WORKSPACE -Repo '${{ github.event.repository.name }}' `
+            -Owner '${{ github.repository_owner }}' -Branch '${{ github.ref_name }}' `
+            -Out $out -Api:$api -Build
+          "SITE_DIR=$(Join-Path $out '_site')" >> $env:GITHUB_ENV
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ env.SITE_DIR }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
