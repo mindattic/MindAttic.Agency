@@ -6,11 +6,11 @@ on:
   workflow_call:
     inputs:
       api:
-        description: Generate an API reference from the repo's .csproj files.
+        description: Generate an API reference from the repo's C# sources (no restore needed).
         type: boolean
         default: false
       runs-on:
-        description: Runner; use windows-latest for Windows-only (WPF/WinForms) projects that need an API reference.
+        description: Runner for the build job.
         type: string
         default: ubuntu-latest
       dotnet-version:

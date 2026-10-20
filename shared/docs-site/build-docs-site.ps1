@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Builds a repo's DocFX documentation site: README.md is the home page, docs/**/*.md are articles,
-    and an optional API reference comes from the repo's .csproj files.
+    and an optional API reference comes from the repo's C# sources.
 
 .DESCRIPTION
     The one copy of the MindAttic docs-site engine. Nothing per-repo is committed except the thin
@@ -209,13 +209,18 @@ if ($Api) { $nav += @('- name: API', '  href: api/') }
 $footer = "<a href=`"$BlobBase`">$Repo on GitHub</a> &middot; built by the MindAttic.Toolkit docs pipeline from README.md and docs/"
 $config = [ordered]@{}
 if ($Api) {
+    # Read the .cs sources directly rather than the .csproj files: a project load needs a NuGet
+    # restore, and most MindAttic packages only exist in the local C:\LocalNuGet feed, not in CI.
     $config.metadata = @([ordered]@{
         src    = @([ordered]@{
             src     = (ToSlash $Root)
-            files   = @('**/*.csproj')
-            exclude = @('**/*Test*/**', '**/*Test*.csproj', '**/*Tests*.csproj', '**/bin/**', '**/obj/**', '**/node_modules/**')
+            files   = @('**/*.cs')
+            exclude = @('**/*Test*/**', '**/*Tests/**', '**/bin/**', '**/obj/**', '**/node_modules/**', '**/Library/**', '**/Temp/**')
         })
-        output = 'api'
+        output                 = 'api'
+        # Without a restore, external types (Microsoft.Extensions, Unity, the game DLLs) don't
+        # resolve; the repo's own types still document fine and show external ones by name.
+        allowCompilationErrors = $true
     })
 }
 $config.build = [ordered]@{
