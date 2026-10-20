@@ -1,15 +1,28 @@
-/* MindAttic codex look (ported from codex-standard/build-readme.ps1) on top of DocFX's modern template. */
+/* The MindAttic look (mindattic.com's palette and type, the codex README.htm layout) on top of
+   DocFX's modern template. */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300..800&display=swap');
+
+/* Attic: the wordmark face only (MindAttic.Components AtticFont, pinned CDN copy). */
+@font-face {
+  font-family: 'Attic';
+  font-style: normal;
+  font-weight: normal;
+  font-display: block;
+  src: url('https://cdn.jsdelivr.net/gh/mindattic/MindAttic.Components@V4/web/components/AtticFont/fonts/attic.woff2') format('woff2');
+}
+
 :root,
 [data-bs-theme=dark] {
   --ma-bg: #0d1117;
-  --ma-bg2: #161b22;
-  --ma-bg3: #21262d;
-  --ma-border: #30363d;
-  --ma-text: #e6edf3;
-  --ma-muted: #8b949e;
-  --ma-h1: #58a6ff;
-  --ma-h2: #79c0ff;
-  --ma-h3: #d2a8ff;
+  --ma-bg2: #13161b;
+  --ma-bg3: #1a1e25;
+  --ma-border: #2a2f3a;
+  --ma-text: #e8eaf0;
+  --ma-muted: #9aa0b0;
+  --ma-h1: #FF0033;
+  --ma-h2: #FF0033;
+  --ma-red-hover: #ff4d70;
+  --ma-h3: #e8eaf0;
   --ma-code: #f0f6fc;
   --ma-mono: 'Cascadia Code', 'Fira Code', Consolas, 'SF Mono', monospace;
 }
@@ -23,15 +36,43 @@
   --bs-secondary-bg: var(--ma-bg3);
   --bs-border-color: var(--ma-border);
   --bs-link-color: var(--ma-h1);
-  --bs-link-color-rgb: 88, 166, 255;
-  --bs-link-hover-color: var(--ma-h2);
-  --bs-link-hover-color-rgb: 121, 192, 255;
+  --bs-link-color-rgb: 255, 0, 51;
+  --bs-link-hover-color: var(--ma-red-hover);
+  --bs-link-hover-color-rgb: 255, 77, 112;
   --bs-code-color: var(--ma-code);
   --bs-font-monospace: var(--ma-mono);
 }
 
+/* MindAttic red (#FF0033) is the accent in light mode too. */
+[data-bs-theme=light] {
+  --bs-link-color: #FF0033;
+  --bs-link-color-rgb: 255, 0, 51;
+  --bs-link-hover-color: #cc0029;
+  --bs-link-hover-color-rgb: 204, 0, 41;
+}
+[data-bs-theme=light] article h1,
+[data-bs-theme=light] article h2,
+[data-bs-theme=light] .toc a.active,
+[data-bs-theme=light] .affix a.active { color: #FF0033; }
+
+/* Wordmark: logo.svg is the white Attic "M" and the repo name is set in Attic, as on mindattic.com;
+   light mode shows both black. */
+#logo { height: 32px; width: auto; margin-right: .35rem; }
+[data-bs-theme=light] #logo { filter: invert(1); }
+.navbar-brand {
+  font-family: 'Attic', serif;
+  font-size: 1.6rem;
+  font-weight: normal;
+  letter-spacing: .01em;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+[data-bs-theme=dark] .navbar-brand { color: #fff; }
+[data-bs-theme=light] .navbar-brand { color: #000; }
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-family: 'Outfit', system-ui, sans-serif;
   font-size: 15px;
   line-height: 1.8;
 }
@@ -157,5 +198,5 @@ body {
 }
 pre { position: relative; }
 pre:hover .ma-copy { opacity: 1; }
-.ma-copy:hover { color: var(--ma-text); }
+.ma-copy:hover { color: #fff; background: #FF0033; border-color: #ff4d70; }
 .ma-copy.ok { color: #7ee787; }

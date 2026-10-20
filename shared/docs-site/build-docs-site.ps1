@@ -232,6 +232,8 @@ $config.build = [ordered]@{
         _appName             = $Repo
         _appTitle            = $Repo
         _appFooter           = $footer
+        _appLogoPath         = 'logo.svg'
+        _appFaviconPath      = 'favicon.svg'
         _enableSearch        = $true
         _disableContribution = $true
     }
