@@ -20,7 +20,7 @@ on:
         type: string
         default: 2.81.0
       toolkit-ref:
-        description: MindAttic.Toolkit ref to build with.
+        description: MindAttic.Agency ref to build with.
         type: string
         default: main
 
@@ -41,7 +41,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          repository: mindattic/MindAttic.Toolkit
+          repository: mindattic/MindAttic.Agency
           ref: ${{ inputs.toolkit-ref }}
           path: .mindattic-toolkit
           sparse-checkout: shared/docs-site

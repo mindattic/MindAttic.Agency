@@ -3,7 +3,7 @@
     Opts one MindAttic repo into the shared DocFX -> GitHub Pages docs site (HOUSE-LAW-14).
 
 .DESCRIPTION
-    1. Writes the thin caller .github/workflows/docs.yml, which runs MindAttic.Toolkit's reusable
+    1. Writes the thin caller .github/workflows/docs.yml, which runs MindAttic.Agency's reusable
        docs-pages.yml on every push to main.
     2. Retires the old codex README.htm renderer: deletes tools/build-readme.ps1 (or .js), README.htm,
        and tools/ if that leaves it empty.
@@ -39,7 +39,7 @@ if ($Api) { $with += '      api: true' }
 if ($RunsOn -ne 'ubuntu-latest') { $with += "      runs-on: $RunsOn" }
 $caller = @(
     '# Publishes this repo''s docs (README.md as the home page, docs/ as articles) to GitHub Pages.'
-    '# The build lives once, in MindAttic.Toolkit; see HOUSE-LAW-14.'
+    '# The build lives once, in MindAttic.Agency; see HOUSE-LAW-14.'
     'name: docs'
     ''
     'on:'
@@ -54,7 +54,7 @@ $caller = @(
     ''
     'jobs:'
     '  docs:'
-    "    uses: $Owner/MindAttic.Toolkit/.github/workflows/docs-pages.yml@main"
+    "    uses: $Owner/MindAttic.Agency/.github/workflows/docs-pages.yml@main"
 )
 if ($with) { $caller += @('    with:') + $with }
 $callerPath = Join-Path $root '.github\workflows\docs.yml'

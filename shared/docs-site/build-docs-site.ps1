@@ -209,7 +209,7 @@ if ($docPages.Count) {
 if ($Api) { $nav += @('- name: API', '  href: api/') }
 [IO.File]::WriteAllText((Join-Path $Out 'toc.yml'), (($nav -join "`n") + "`n"))
 
-$footer = "<a href=`"$BlobBase`">$Repo on GitHub</a> &middot; built by the MindAttic.Toolkit docs pipeline from README.md and docs/"
+$footer = "<a href=`"$BlobBase`">$Repo on GitHub</a> &middot; built by the MindAttic.Agency docs pipeline from README.md and docs/"
 $config = [ordered]@{}
 if ($Api) {
     # Read the .cs sources directly rather than the .csproj files: a project load needs a NuGet
