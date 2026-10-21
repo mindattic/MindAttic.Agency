@@ -41,4 +41,4 @@ _Nothing recorded yet._
 | MAT-T18 | 2026-10-20 | feature | closed | Docs site headings (h1-h6, table headers, the In this article label) are set at normal weight, never bold | MindAttic.Toolkit@f969929 |
 | MAT-T19 | 2026-10-20 | feature | closed | Outfit is the base font of the docs sites: Bootstrap's font variables are set to Outfit so nav, search, buttons and every other element inherit it (code stays monospace, the wordmark stays Attic) | MindAttic.Toolkit@8f59728 |
 | MAT-T20 | 2026-10-20 | feature | closed | The docs sites' Back to Top button is a rounded square with a centered equilateral triangle instead of the words Back to Top (aria-label and tooltip keep the name) | MindAttic.Toolkit@7453331 |
-| MAT-T21 | 2026-10-20 | chore | open | Rename MindAttic.Toolkit to MindAttic.Agency (GitHub repo, local folder, cross-repo references) | — |
+| MAT-T21 | 2026-10-20 | chore | closed | Rename MindAttic.Toolkit to MindAttic.Agency (GitHub repo, local folder, cross-repo references) | — |
