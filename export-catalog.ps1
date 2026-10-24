@@ -20,11 +20,19 @@ function Add-File([string]$scope,[string]$project,[string]$kind,[string]$path,[s
 # way; match it here.
 $excludedDirPattern = '\\(node_modules|PackageCache|\.git|\.vs|_dropbox|mindattic-agent-standard|codex-standard)(\\|$)'
 $dirs = Get-ChildItem -LiteralPath $WorkspaceRoot -Recurse -Directory -Force -ErrorAction SilentlyContinue |
-  Where-Object { $_.FullName -notmatch $excludedDirPattern -and ((Test-Path (Join-Path $_.FullName '.git')) -or (Test-Path (Join-Path $_.FullName '.claude'))) }
+  Where-Object {
+    $_.FullName -notmatch $excludedDirPattern -and
+    # A linked git worktree (agent scratch checkout under .claude\worktrees, or a ticket worktree
+    # sitting next to its repo) has its own .git *file* pointing at the real repo's worktrees
+    # folder, not a .git directory; it disappears once its agent finishes, so cataloging it as its
+    # own "project" makes every regeneration noisy and points at paths that won't exist tomorrow.
+    -not (Test-Path (Join-Path $_.FullName '.git') -PathType Leaf) -and
+    ((Test-Path (Join-Path $_.FullName '.git')) -or (Test-Path (Join-Path $_.FullName '.claude')))
+  }
 foreach($d in $dirs) {
   foreach($f in Get-ChildItem (Join-Path $d.FullName '.claude\commands') -File -ErrorAction SilentlyContinue){ Add-File 'project' $d.Name 'command' $f.FullName }
   $skillsRoot = Join-Path $d.FullName '.claude\skills'
-  foreach($f in Get-ChildItem $skillsRoot -File -Recurse -ErrorAction SilentlyContinue){
+  foreach($f in Get-ChildItem $skillsRoot -File -Recurse -Filter 'SKILL.md' -ErrorAction SilentlyContinue){
     # Every skill file is named SKILL.md, so the file's own basename never distinguishes one
     # skill from another; the skill's real name is its containing folder, one level under
     # .claude\skills\ (MAT-T42).

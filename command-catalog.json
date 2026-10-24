@@ -1,7 +1,7 @@
 ﻿{
     "standard":  "MindAttic Agent Standard",
     "protocolVersion":  "1.0",
-    "generatedAt":  "2026-10-24T06:42:54.6944298Z",
+    "generatedAt":  "2026-10-24T06:47:18.6953129Z",
     "items":  [
                   {
                       "scope":  "project",
@@ -547,70 +547,7 @@
                       "project":  "Prose",
                       "kind":  "skill",
                       "name":  "glmz-wheel",
-                      "path":  "Prose\\.claude\\skills\\glmz-wheel\\brief.md"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "Prose",
-                      "kind":  "skill",
-                      "name":  "glmz-wheel",
                       "path":  "Prose\\.claude\\skills\\glmz-wheel\\SKILL.md"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "Prose",
-                      "kind":  "skill",
-                      "name":  "glmz-wheel",
-                      "path":  "Prose\\.claude\\skills\\glmz-wheel\\tools\\apply.ps1"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "Prose",
-                      "kind":  "skill",
-                      "name":  "glmz-wheel",
-                      "path":  "Prose\\.claude\\skills\\glmz-wheel\\tools\\check.py"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "Prose",
-                      "kind":  "skill",
-                      "name":  "glmz-wheel",
-                      "path":  "Prose\\.claude\\skills\\glmz-wheel\\tools\\dump.ps1"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "Prose",
-                      "kind":  "skill",
-                      "name":  "glmz-wheel",
-                      "path":  "Prose\\.claude\\skills\\glmz-wheel\\tools\\dup.py"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "Prose",
-                      "kind":  "skill",
-                      "name":  "glmz-wheel",
-                      "path":  "Prose\\.claude\\skills\\glmz-wheel\\tools\\f1.ps1"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "Prose",
-                      "kind":  "skill",
-                      "name":  "glmz-wheel",
-                      "path":  "Prose\\.claude\\skills\\glmz-wheel\\tools\\pos.py"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "Prose",
-                      "kind":  "skill",
-                      "name":  "glmz-wheel",
-                      "path":  "Prose\\.claude\\skills\\glmz-wheel\\tools\\select.py"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "Prose",
-                      "kind":  "skill",
-                      "name":  "glmz-wheel",
-                      "path":  "Prose\\.claude\\skills\\glmz-wheel\\tools\\show.py"
                   },
                   {
                       "scope":  "project",
@@ -978,20 +915,6 @@
                   },
                   {
                       "scope":  "project",
-                      "project":  "M.CAPT-T12",
-                      "kind":  "instructions",
-                      "name":  "CLAUDE",
-                      "path":  "MindAttic.Capture\\M.CAPT-T12\\CLAUDE.md"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "main-tests",
-                      "kind":  "instructions",
-                      "name":  "CLAUDE",
-                      "path":  "MindAttic.Capture\\main-tests\\CLAUDE.md"
-                  },
-                  {
-                      "scope":  "project",
                       "project":  "Hyperspace",
                       "kind":  "hook",
                       "name":  "quickload-on-do",
@@ -1171,48 +1094,6 @@
                       "kind":  "instructions",
                       "name":  "CLAUDE",
                       "path":  "MindAttic.Web\\ryandebraal.com\\CLAUDE.md"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "agent-ac5fdc445806110e7",
-                      "kind":  "instructions",
-                      "name":  "CLAUDE",
-                      "path":  "Unity.QuickDuel\\.claude\\worktrees\\agent-ac5fdc445806110e7\\CLAUDE.md"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "agent-af12dbdbe671f8ccc",
-                      "kind":  "instructions",
-                      "name":  "CLAUDE",
-                      "path":  "Unity.QuickDuel\\.claude\\worktrees\\agent-af12dbdbe671f8ccc\\CLAUDE.md"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "agent-a7fe8aaf3c50e6785",
-                      "kind":  "command",
-                      "name":  "quickload",
-                      "path":  "Unity.SpaceGod\\.claude\\worktrees\\agent-a7fe8aaf3c50e6785\\.claude\\commands\\quickload.md"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "agent-a7fe8aaf3c50e6785",
-                      "kind":  "command",
-                      "name":  "quicksave",
-                      "path":  "Unity.SpaceGod\\.claude\\worktrees\\agent-a7fe8aaf3c50e6785\\.claude\\commands\\quicksave.md"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "agent-a7fe8aaf3c50e6785",
-                      "kind":  "hook",
-                      "name":  "quickload-on-do",
-                      "path":  "Unity.SpaceGod\\.claude\\worktrees\\agent-a7fe8aaf3c50e6785\\.claude\\hooks\\quickload-on-do.ps1"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "agent-a7fe8aaf3c50e6785",
-                      "kind":  "instructions",
-                      "name":  "CLAUDE",
-                      "path":  "Unity.SpaceGod\\.claude\\worktrees\\agent-a7fe8aaf3c50e6785\\CLAUDE.md"
                   },
                   {
                       "scope":  "global",
