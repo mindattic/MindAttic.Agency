@@ -76,3 +76,54 @@ manual `git commit`):
 Never copy a command's body into a provider-specific or per-project folder. A client-specific
 alias (e.g. a non-Claude provider's own command file) must invoke the shared global command or the
 runner — never reimplement it.
+
+## Artifacts: every one also lives in the repo (HOUSE-LAW-12)
+
+A Claude artifact lives on claude.ai and has been observed going missing, so the repo copy is the
+durable one. This applies to every artifact published or updated while working on a MindAttic
+project, not just ones the user asks to save:
+
+1. **Get the full content.** After publishing or updating, read it back
+   (`Artifact action: read`, `page: true`) so you have the exact bytes the host now serves —
+   never retype or paraphrase it. A multi-file artifact's other published files
+   (`action: read`, `path`/`paths`) get inlined into the one HTML file (styles and scripts
+   inline, images as data URIs) — a Google Fonts `<link>` is the one exception and stays a link.
+2. **Name it from its `<title>`.** Sanitize for the filesystem (strip `< > : " / \ | ? *` and
+   control characters, collapse whitespace) and add `.html`. Never name it after the artifact's
+   id or URL slug.
+3. **Place it.** `<repo>/artifacts/<Title>.html` in the one MindAttic project repo the artifact
+   is for. An artifact that isn't about any single project (a general reference page, a tool
+   demo) goes in the workspace-root `artifacts/` folder instead. If the repo's `artifacts/`
+   folder is already used for something else (e.g. GridGameCaravan's `tools/labcheck.py`
+   screenshots), the HTML file sits alongside it — same folder, no collision, since the filename
+   comes from the title.
+4. **Commit it with the ticket for the work that produced it.** New work and its artifact are one
+   story, one commit. A backfill of an artifact from earlier work gets its own `chore` ticket
+   (`tickets ticket new --repo <name> --type chore --summary "..."`) in that artifact's repo —
+   root-level artifacts (and other workspace-root-only chores) use `--repo MindAttic.Agency`,
+   the established home for org-wide tickets, per MAT-T4/MAT-T5.
+
+See `MindAttic.HouseRules.md` HOUSE-LAW-12 for the one-paragraph version every project's
+`docs/BIBLE.md` can cite by reference.
+
+## Docs site: every repo on GitHub Pages (HOUSE-LAW-14)
+
+A repo's docs are published by MindAttic.Agency's shared pipeline, never by a per-repo renderer.
+
+1. **Preview locally** (needs `dotnet tool install -g docfx`):
+   `powershell -File MindAttic.Agency/shared/docs-site/build-docs-site.ps1 -Root <repo> [-Api] -Serve`.
+   It stages README.md as `index.md` plus `docs/**/*.md` in a temp folder, generates `toc.yml` and
+   `docfx.json` there, and runs DocFX. Nothing is written into the repo.
+2. **Adopt**: `powershell -File MindAttic.Agency/shared/docs-site/adopt-docs-site.ps1 -Repo <name> [-Api] [-RunsOn windows-latest]`.
+   It writes `.github/workflows/docs.yml`, deletes `tools/build-readme.ps1`/`.js` and `README.htm`,
+   turns Pages on (`build_type=workflow`), sets an empty repo homepage to the site URL, and lists
+   any file that still mentions the old renderer. Use `-Api` for any repo with C# code: the API
+   reference is read from the `.cs` sources without a NuGet restore (packages in `C:\LocalNuGet`
+   aren't in CI), so it works for libraries, apps, GTFO mods and Unity games alike; external types
+   just show by name.
+3. **Commit** the result with the repo's own docs ticket, push, and check that the `docs` run is
+   green and `https://mindattic.github.io/<Repo>/` loads.
+
+Links are rewritten while staging: links between published pages stay page links, images are
+copied in, anything else in the repo links to it on GitHub, and links that leave the repo keep
+only their text. BIBLE-style `{#id}` anchors and codex front matter are handled too.

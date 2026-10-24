@@ -17,6 +17,39 @@
 $WARN = 80
 $CRIT = 90
 
+function Get-RepliedAt($session, $path) {
+  # When this session's last reply came (epoch seconds): its transcript's last assistant entry; $null when unknown. Cached by
+  # the transcript's length, so an unchanged transcript isn't read again (outside session-context, which is all sessions).
+  if (-not $session -or -not $path -or -not (Test-Path -LiteralPath $path)) { return $null }
+  $cache = Join-Path (Join-Path $env:TEMP 'mindattic-statusline') "$session.json"
+  $fs = [IO.File]::Open($path, 'Open', 'Read', 'ReadWrite, Delete')
+  try {
+    $length = $fs.Length
+    try { $c = Get-Content -LiteralPath $cache -Raw -ErrorAction Stop | ConvertFrom-Json; if ($c.length -eq $length) { return $c.replied } } catch { }
+    $take = [int][Math]::Min($length, 1MB)
+    [void]$fs.Seek(-$take, 'End')
+    $buf = New-Object byte[] $take
+    $read = 0
+    while ($read -lt $take) { $n = $fs.Read($buf, $read, $take - $read); if ($n -le 0) { break }; $read += $n }
+    $lines = [Text.Encoding]::UTF8.GetString($buf, 0, $read) -split "`n"
+  } finally { $fs.Dispose() }
+  $replied = $null
+  for ($i = $lines.Count - 1; $i -ge 0 -and $null -eq $replied; $i--) {
+    if ($lines[$i] -match '"type"\s*:\s*"assistant"') {
+      # The entry's own time is its last "timestamp": a tool call's input can carry one of its own earlier in the line.
+      $stamps = [regex]::Matches($lines[$i], '"timestamp"\s*:\s*"([^"]+)"')
+      if ($stamps.Count) {
+        $replied = [DateTimeOffset]::Parse($stamps[$stamps.Count - 1].Groups[1].Value, [Globalization.CultureInfo]::InvariantCulture).ToUnixTimeMilliseconds() / 1000.0
+      }
+    }
+  }
+  try {
+    [void][IO.Directory]::CreateDirectory((Split-Path -Parent $cache))
+    [IO.File]::WriteAllText($cache, ([ordered]@{ length = $length; replied = $replied } | ConvertTo-Json -Compress))
+  } catch { }
+  return $replied
+}
+
 $raw = [Console]::In.ReadToEnd()
 try { $j = $raw | ConvertFrom-Json } catch { $j = $null }
 
@@ -27,16 +60,36 @@ if ($j -and $j.rate_limits) {
     # Each open session redraws every minute with the percent from its OWN last reply, so an idle one carries a stale,
     # lower percent (12% while the window was at 35%). Usage never falls within a window: a reading no higher than the
     # file's for the same window is left out, so the file only moves up and its time stays the newest real reading.
+    # A reply from a window that has already reset is left out too: restamped with now, it hid the running window's
+    # reading for 1h55m on Oct 19 (M.ORCH-T479), since the pacer saw a fresh file and never asked Claude itself.
     $stale = $false
     $new = $j.rate_limits.five_hour
-    if ($new -and $null -ne $new.used_percentage -and (Test-Path -LiteralPath $file)) {
+    if ($new -and $null -ne $new.resets_at -and [double]$new.resets_at -le [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) { $stale = $true }
+    if (-not $stale -and $new -and $null -ne $new.used_percentage -and (Test-Path -LiteralPath $file)) {
       try {
         $old = (Get-Content -LiteralPath $file -Raw | ConvertFrom-Json).rate_limits.five_hour
         $stale = $old -and "$($old.resets_at)" -eq "$($new.resets_at)" -and [double]$new.used_percentage -le [double]$old.used_percentage
       } catch { }
     }
+    # After a /login the same redraw restamps the old account's last reply as new. A reply from after the current account's
+    # sign-in (account.json, kept by MindAttic.Orchestrator) is tagged with that account so it counts at once; one from
+    # before it is the old account's and is left out. An API key has no windows of its own to tag.
+    $account = $null
+    $signIn = Join-Path $env:USERPROFILE '.claude\session-context\account.json'
+    if (-not $stale -and (Test-Path -LiteralPath $signIn)) {
+      try {
+        $seen = Get-Content -LiteralPath $signIn -Raw | ConvertFrom-Json
+        if ($seen.account -and $null -ne $seen.since) {
+          $replied = Get-RepliedAt $j.session_id $j.transcript_path
+          if ($null -ne $replied -and $replied -lt [double]$seen.since) { $stale = $true }
+          elseif ($null -ne $replied -and $seen.account -ne 'api-key') { $account = $seen.account }
+        }
+      } catch { }
+    }
     if (-not $stale) {
-      $usage = [ordered]@{ rate_limits = $j.rate_limits; at = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ') } | ConvertTo-Json -Depth 5 -Compress
+      $usage = [ordered]@{ rate_limits = $j.rate_limits; at = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ') }
+      if ($account) { $usage.account = $account }
+      $usage = $usage | ConvertTo-Json -Depth 5 -Compress
       [IO.File]::WriteAllText("$file.$PID.tmp", $usage)
       Move-Item -LiteralPath "$file.$PID.tmp" -Destination $file -Force
     }
