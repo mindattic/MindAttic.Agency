@@ -7,7 +7,8 @@ $names=@('CLAUDE.md','CODEX.md','GEMINI.md','KIMI.md','DEEPSEEK.md','MISTRAL.md'
 $files=Get-ChildItem $WorkspaceRoot -Recurse -File -Force -ErrorAction SilentlyContinue |
   Where-Object {$names -contains $_.Name -and $_.FullName -notmatch '\\(node_modules|PackageCache|\.git|mindattic-agent-standard|codex-standard)\\'}
 New-Item -ItemType Directory -Path $ArchivePath -Force | Out-Null
-$stub=@('# Provider compatibility forwarder','', 'Read the canonical global instructions at D:\Projects\MindAttic\MINDATTIC_AGENT.md, then','mindattic-agent-standard\AGENTS.md and the current project documentation. This file intentionally','contains no vendor-specific behavior or duplicated workflow.')
+$agentMdPath = Join-Path $WorkspaceRoot 'MINDATTIC_AGENT.md'
+$stub=@('# Provider compatibility forwarder','', "Read the canonical global instructions at $agentMdPath, then",'mindattic-agent-standard\AGENTS.md and the current project documentation. This file intentionally','contains no vendor-specific behavior or duplicated workflow.')
 foreach($f in $files){
   $rel=$f.FullName.Substring(([IO.Path]::GetFullPath($WorkspaceRoot).TrimEnd('\')+'\').Length)
   $dest=Join-Path $ArchivePath ($rel -replace '[\\/:]','__')
