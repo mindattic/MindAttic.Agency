@@ -98,11 +98,13 @@ $bands = @(
 )
 $testPattern = '(?i)\b(dotnet\s+(test|build)|-runTests|npm\s+(run\s+)?test|pytest|cargo\s+test|go\s+test|run-spike|Invoke-Pester|msbuild)\b'
 
-function Get-Milestone([string]$name, $toolInput) {
+function Get-Milestone([string]$name, $toolInput, [string]$ticket) {
   if ($name -in @('Write', 'Edit', 'MultiEdit', 'NotebookEdit')) { return 1 }
   if ($name -in @('Bash', 'PowerShell')) {
     $cmd = [string](Get-Field $toolInput 'command')
-    if ($cmd -match '(tickets|workflow)\s+ticket\s+close') { return 5 }
+    # Require the agent's own ticket right after "close" so closing a different (duplicate/sibling)
+    # ticket, or a command that merely mentions the phrase (a grep, a commit message), doesn't count.
+    if ($ticket -and $cmd -match ('(?i)(tickets|workflow)\s+ticket\s+close\s+' + [regex]::Escape($ticket) + '\b')) { return 5 }
     if ($cmd -match 'git\s+push') { return 4 }
     if ($cmd -match 'git\s+commit') { return 3 }
     if ($cmd -match $testPattern) { return 2 }
@@ -154,7 +156,7 @@ function Read-Agent([IO.FileInfo]$file) {
       $toolInput = Get-Field $part 'input'
       $agent.toolCalls++
       $agent.doing = Describe-Tool $name $toolInput
-      $m = Get-Milestone $name $toolInput
+      $m = Get-Milestone $name $toolInput $agent.ticket
       if ($m -gt $agent.milestone) { $agent.milestone = $m; $agent.phaseCalls = 0 }
       $agent.phaseCalls++
     }
@@ -163,7 +165,10 @@ function Read-Agent([IO.FileInfo]$file) {
   # end_turn is not always recorded on the final reply, so a closing text reply with nothing after
   # it for a minute counts too; a working agent follows its text with a tool call within seconds.
   $quiet = ((Get-Date) - $file.LastWriteTime).TotalMinutes -ge 1
-  $agent.finished = ($lastStop -eq 'end_turn') -or ($lastKind -eq 'text' -and $quiet)
+  # Once the transcript shows the agent's own ticket closed (milestone 5, "closing"), it is done at
+  # 100% no matter what read-only command ran afterward (e.g. a ticket verify after the close) —
+  # only an agent that is still short of that milestone can be stalled.
+  $agent.finished = ($lastStop -eq 'end_turn') -or ($lastKind -eq 'text' -and $quiet) -or ($agent.milestone -ge 5)
   return $agent
 }
 
@@ -184,6 +189,9 @@ function Get-WorktreeState([string]$path) {
   if ($changed -gt 0) { $parts += "$changed file(s) changed, uncommitted" }
   return ($parts -join '; ')
 }
+
+# Dot-sourcing (the tests do) only loads the functions above.
+if ($MyInvocation.InvocationName -eq '.') { return }
 
 $projectsDir = Join-Path $ClaudeRoot 'projects'
 $files = @(Get-ChildItem -Path $projectsDir -Directory -ErrorAction SilentlyContinue |
