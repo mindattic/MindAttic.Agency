@@ -1,0 +1,3 @@
+# Portable agent session state (command definitions under .agent/commands are tracked).
+.agent/agent-session.json*
+.agent/agent-queue.json*

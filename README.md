@@ -1,7 +1,7 @@
 # MindAttic Agent Standard
 
 This directory is the single implementation home for provider-neutral agent behavior shared by
-every repository under `D:\Projects\MindAttic`. Project-local `AGENTS.md` files and `.prose`
+every repository under `D:\Projects\MindAttic`. Project-local `AGENTS.md` files and `.agent`
 command definitions are discovery pointers only. They must not contain another copy of the
 workflow.
 
@@ -17,8 +17,13 @@ commands remain in the project repository's catalog, while common lifecycle comm
 `/quicksave`, `/quickload`, `/do`, `/commit`, `/deploy`, `/progress` are also real global commands at
 `~/.claude/commands/` — present for every repo on Day 1, with no per-project `.claude/commands`
 copy and no `install.ps1` run required. `install.ps1` still projects provider-neutral pointers
-(`.prose/commands/*.md`) for non-Claude clients, mirroring whatever it finds in that global
+(`.agent/commands/*.md`) for non-Claude clients, mirroring whatever it finds in that global
 folder.
+
+Each repo's `.agent/` folder also holds the runner's portable handoff (`agent-session.json`) and
+bookmark queue (`agent-queue.json`), both git-ignored. The folder was `.prose/` until MAT-T39 (the
+name read as the separate Prose product); the runner moves an old `.prose/` handoff and queue across
+on first use, and `install.ps1` moves the command pointers and rewrites `.gitignore` entries.
 
 ## Docs site pipeline (HOUSE-LAW-14)
 

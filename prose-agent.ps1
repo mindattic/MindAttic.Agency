@@ -20,8 +20,25 @@ param(
 
 $ErrorActionPreference = 'Stop'
 if ([string]::IsNullOrWhiteSpace($RepoRoot)) { $RepoRoot = (Get-Location).Path }
-$stateDir = Join-Path $RepoRoot '.prose'
+# Per-repo agent state lives in .agent (it was .prose, which read as the separate Prose product).
+$stateDir = Join-Path $RepoRoot '.agent'
 $sessionPath = Join-Path $stateDir 'agent-session.json'
+# One-time migration: carry a handoff/queue (and their .NNN archives) saved under the old .prose
+# folder across, so a save made before the rename still loads. Never overwrites a newer .agent file;
+# anything else in .prose (e.g. Prose's own hooks) is left where it is.
+$legacyStateDir = Join-Path $RepoRoot '.prose'
+if (Test-Path -LiteralPath $legacyStateDir) {
+  $legacy = @(Get-ChildItem -LiteralPath $legacyStateDir -File -Force -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -match '^agent-(session|queue)\.json(\.\d{3})?$' })
+  if ($legacy.Count -gt 0) {
+    New-Item -ItemType Directory -Path $stateDir -Force | Out-Null
+    foreach ($f in $legacy) {
+      $dest = Join-Path $stateDir $f.Name
+      if (-not (Test-Path -LiteralPath $dest)) { Move-Item -LiteralPath $f.FullName -Destination $dest }
+    }
+    if (-not (Get-ChildItem -LiteralPath $legacyStateDir -Force)) { Remove-Item -LiteralPath $legacyStateDir }
+  }
+}
 $cliDll = Join-Path $RepoRoot 'v3\Prose.Cli\bin\Debug\net10.0\Prose.Cli.dll'
 # The bookmark queue: things to do later, captured mid-task without stopping. Drained into the
 # next save (and archived, never deleted) so a queued item survives /clear.

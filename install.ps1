@@ -28,11 +28,51 @@ See `..\mindattic-agent-standard\README.md`.
 $globalCommandDir = Join-Path $GlobalClaudeRoot 'commands'
 $globalNames = @(Get-ChildItem $globalCommandDir -File -ErrorAction SilentlyContinue | ForEach-Object { [IO.Path]::GetFileNameWithoutExtension($_.Name) } | Where-Object { $_ -match '^[A-Za-z0-9._-]+$' })
 
+function Move-LegacyAgentFolder([string]$repo) {
+  # The per-repo state/discovery folder was .prose until MAT-T39 renamed it to .agent (.prose read as
+  # the separate Prose product). Carry the standard's own files across -- command pointers, handoff,
+  # queue and their .NNN archives -- without overwriting anything already in .agent, and point the
+  # repo's .gitignore entries at the new folder. Anything else in .prose (Prose's own hooks, say) stays.
+  $legacyDir = Join-Path $repo '.prose'
+  $newDir = Join-Path $repo '.agent'
+  if (Test-Path -LiteralPath $legacyDir) {
+    $legacyCommands = Join-Path $legacyDir 'commands'
+    if (Test-Path -LiteralPath $legacyCommands) {
+      $newCommands = Join-Path $newDir 'commands'
+      New-Item -ItemType Directory -Path $newCommands -Force | Out-Null
+      foreach ($f in Get-ChildItem -LiteralPath $legacyCommands -File -Force) {
+        $dest = Join-Path $newCommands $f.Name
+        if (-not (Test-Path -LiteralPath $dest)) { Move-Item -LiteralPath $f.FullName -Destination $dest }
+      }
+      if (-not (Get-ChildItem -LiteralPath $legacyCommands -Force)) { Remove-Item -LiteralPath $legacyCommands }
+    }
+    foreach ($f in Get-ChildItem -LiteralPath $legacyDir -File -Force | Where-Object { $_.Name -match '^agent-(session|queue)\.json(\.\d{3})?$' }) {
+      New-Item -ItemType Directory -Path $newDir -Force | Out-Null
+      $dest = Join-Path $newDir $f.Name
+      if (-not (Test-Path -LiteralPath $dest)) { Move-Item -LiteralPath $f.FullName -Destination $dest }
+    }
+    if (-not (Get-ChildItem -LiteralPath $legacyDir -Force)) { Remove-Item -LiteralPath $legacyDir }
+  }
+  $gitignore = Join-Path $repo '.gitignore'
+  if (Test-Path -LiteralPath $gitignore) {
+    $text = [IO.File]::ReadAllText($gitignore)
+    $updated = $text -replace '(?m)^\.prose/(agent-(session|queue)\.json)', '.agent/$1' `
+                     -replace 'command definitions under \.prose/commands', 'command definitions under .agent/commands'
+    # A repo that ignored the whole old folder ignores the whole new one too.
+    if ($updated -match '(?m)^\.prose/\s*$' -and $updated -notmatch '(?m)^\.agent/\s*$') {
+      $updated = $updated -replace '(?m)^(\.prose/)(\r?)$', "`$1`$2`n.agent/`$2"
+    }
+    if ($updated -ne $text) { [IO.File]::WriteAllText($gitignore, $updated, (New-Object System.Text.UTF8Encoding $false)) }
+  }
+}
+
 foreach ($project in $projects) {
   $agentPath = Join-Path $project.FullName 'AGENTS.md'
-  $commandDir = Join-Path $project.FullName '.prose\commands'
+  $stateDir = Join-Path $project.FullName '.agent'
+  $commandDir = Join-Path $stateDir 'commands'
   if ($WhatIf) { Write-Output "would install $($project.Name)"; continue }
   if (-not (Test-Path $agentPath)) { Set-Content -LiteralPath $agentPath -Value $agentText -Encoding UTF8 }
+  Move-LegacyAgentFolder $project.FullName
   New-Item -ItemType Directory -Path $commandDir -Force | Out-Null
   # do/quicksave/quickload/commit/deploy are now real global commands at
   # $GlobalClaudeRoot\commands (see AGENTS.md) and get picked up by the $globalNames loop below.
