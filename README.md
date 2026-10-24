@@ -49,3 +49,13 @@ pipeline here:
 - `shared/docs-site/adopt-docs-site.ps1 -Repo <name> [-Api]` opts a repo in: it writes the thin
   `.github/workflows/docs.yml` caller, retires `README.htm`/`tools/build-readme.*`, and turns
   Pages on.
+
+## This repo is the one canonical copy (MAT-T50)
+
+`D:\Projects\MindAttic\mindattic-agent-standard\` is a legacy mirror left over from before this
+standard was pulled into its own repo (`MindAttic.Agency`). Left alone, the two drift in both
+directions — MAT-T26's readiness sweep found fixes that had landed in only one side or the other
+(MAT-T50). This repo is the source of truth: `sync-workspace-copy.ps1 -Check` (run from the
+workspace's `MindAttic.Agency` checkout) reports any file that differs from or is missing under the
+mirror, and the same script without `-Check` copies this repo's files onto it. `share-scripts.ps1`
+runs the `-Check` pass (report-only) on every install.

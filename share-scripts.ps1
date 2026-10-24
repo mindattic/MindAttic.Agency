@@ -128,3 +128,13 @@ foreach ($repo in Get-ChildItem -LiteralPath $WorkspaceRoot -Directory) {
 
 foreach ($l in $left) { Write-Output "kept: $l" }
 if ($WhatIf) { Write-Output 'WhatIf: nothing was changed.' }
+
+# -- Canonical-source drift check (MAT-T50): surface it here rather than copying silently --------
+# This repo is canonical; D:\...\mindattic-agent-standard\ is a legacy mirror that drifts when either
+# side is edited on its own. Report-only: sync-workspace-copy.ps1 (no -Check) is the one that copies.
+# Run as a child process (not `&`/dot-sourced): its own -Check path calls `exit`, which would otherwise
+# terminate this script too instead of just reporting.
+$syncScript = Join-Path $PSScriptRoot 'sync-workspace-copy.ps1'
+if (Test-Path -LiteralPath $syncScript) {
+    powershell -NoProfile -ExecutionPolicy Bypass -File $syncScript -WorkspaceRoot $WorkspaceRoot -Check
+}

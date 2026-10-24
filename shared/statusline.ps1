@@ -64,7 +64,16 @@ if ($j -and $j.rate_limits) {
     # reading for 1h55m on Oct 19 (M.ORCH-T479), since the pacer saw a fresh file and never asked Claude itself.
     $stale = $false
     $new = $j.rate_limits.five_hour
-    if ($new -and $null -ne $new.resets_at -and [double]$new.resets_at -le [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) { $stale = $true }
+    # resets_at is normally epoch seconds, but parse defensively (MAT-T50): a payload that ever carries
+    # it as an ISO date must not throw past this point and silently drop the whole usage write below; an
+    # unparseable value is treated as already stale rather than skipping the M.ORCH-T479 check outright.
+    if ($new -and $null -ne $new.resets_at) {
+      $resetsAtSeconds = $null
+      try { $resetsAtSeconds = [double]$new.resets_at } catch {
+        try { $resetsAtSeconds = [DateTimeOffset]::Parse([string]$new.resets_at, [Globalization.CultureInfo]::InvariantCulture).ToUnixTimeSeconds() } catch { $stale = $true }
+      }
+      if ($null -ne $resetsAtSeconds -and $resetsAtSeconds -le [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) { $stale = $true }
+    }
     if (-not $stale -and $new -and $null -ne $new.used_percentage -and (Test-Path -LiteralPath $file)) {
       try {
         $old = (Get-Content -LiteralPath $file -Raw | ConvertFrom-Json).rate_limits.five_hour
