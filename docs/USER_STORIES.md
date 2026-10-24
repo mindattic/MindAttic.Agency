@@ -75,3 +75,4 @@ _Nothing recorded yet._
 | MAT-T52 | 2026-10-24 | chore | closed | Point shared/statusline.ps1 at ~/.claude/allocate-waiting.json instead of autopilot-waiting.json, matching MindAttic.Orchestrator's Autopilot->Allocate rename (M.ORCH-T779) | 4b72309 |
 | MAT-T53 | 2026-10-24 | docs | closed | Remove /autopilot command mentions from AGENTS.md, agent-progress.ps1 and statusline.ps1 now that /allocate replaced it as the user-facing command; regenerate command-catalog.json after deleting the retired global /autopilot and /work command files | 14586ee |
 | MAT-T54 | 2026-10-24 | docs | closed | Update USER_STORIES.md | — |
+| MAT-T55 | 2026-10-24 | chore | open | Re-run install.ps1 to refresh .agent/commands pointers workspace-wide: drop stale autopilot.md (renamed to allocate.md), add missing pointers for hey-listen, listen, org, organization, pacing | — |
