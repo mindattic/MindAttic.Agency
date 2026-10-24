@@ -52,11 +52,11 @@ repo were renamed from `master` on 2026-10-16; four archived repos, MindAttic.Bo
 - Anything else (a feature, a change of behaviour, a chore, tests, docs), whether the user suggested it or
   you thought of it: write the ticket, print its full text for the user, and wait for the user's yes. A
   non-fix ticket is never worked until the user approves it (`orchestrator approve <ID>`); the orchestrator,
-  autopilot and keep-going skip it until then, and so must you.
+  `/allocate` and keep-going skip it until then, and so must you.
 
 ## Commits: one ticket, one story, nothing else
 
-This applies to every commit, whoever makes it (`/commit`, autopilot, the orchestrator, a subagent, a
+This applies to every commit, whoever makes it (`/commit`, `/allocate`, the orchestrator, a subagent, a
 manual `git commit`):
 
 - Every commit names its ticket. The subject line ends with the ticket ID in parentheses,

@@ -113,14 +113,14 @@ $parts += $ctx
 
 Write-Output ($parts -join "  ${dim}|${reset}  ")
 
-# --- autopilot waiting on the pace (saved by MindAttic.Orchestrator each tick; costs no tokens) ---
+# --- this CLI's own ticket work waiting on the pace (saved by MindAttic.Orchestrator each tick; costs no tokens) ---
 if ($repoRoot) {
   try {
     $wait = Get-Content -LiteralPath (Join-Path $env:USERPROFILE '.claude\allocate-waiting.json') -Raw -ErrorAction Stop | ConvertFrom-Json
     $repo = Split-Path -Leaf $repoRoot
     $fresh = ([DateTime]::UtcNow - [DateTime]::Parse($wait.at).ToUniversalTime()).TotalMinutes -lt 10
     if ($fresh -and ($wait.repos | Where-Object { $_ -ieq $repo })) {
-      Write-Output "${amber}Autopilot is on for $repo, but usage is ahead of the 5-hour pace; I'll pick up the next ticket as soon as there's room.${reset}"
+      Write-Output "${amber}Ticket work for $repo is paused - usage is ahead of the 5-hour pace; I'll pick up the next ticket as soon as there's room.${reset}"
     }
   } catch { }
 }
