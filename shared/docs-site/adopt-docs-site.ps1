@@ -31,7 +31,19 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = if (Test-Path -LiteralPath $Repo) { (Resolve-Path -LiteralPath $Repo).Path } else { Join-Path $Workspace $Repo }
 if (-not (Test-Path -LiteralPath (Join-Path $root '.git'))) { throw "Not a repo: $root" }
-$name = Split-Path -Leaf $root
+
+# The repo's real name, not the folder it happens to run in: an orchestrator worktree
+# (D:\Projects\MindAttic.worktrees\<Repo>\<ticket>) is named after the ticket, so Split-Path -Leaf
+# $root would target the wrong GitHub repo (MAT-T30, MAT-T33). Prefer the git remote (origin),
+# then -Repo itself when it's a bare name rather than a path, and only then the folder name.
+$name = $null
+$originUrl = (git -C $root remote get-url origin 2>$null)
+if ($LASTEXITCODE -eq 0 -and $originUrl) {
+    $name = ($originUrl.Trim() -replace '\.git$', '').TrimEnd('/').Split('/')[-1]
+}
+if ([string]::IsNullOrWhiteSpace($name)) {
+    if ($Repo -and ($Repo -notmatch '[\\/]')) { $name = $Repo } else { $name = Split-Path -Leaf $root }
+}
 $siteUrl = "https://$Owner.github.io/$name/"
 
 $with = @()
