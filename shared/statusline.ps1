@@ -116,7 +116,7 @@ Write-Output ($parts -join "  ${dim}|${reset}  ")
 # --- autopilot waiting on the pace (saved by MindAttic.Orchestrator each tick; costs no tokens) ---
 if ($repoRoot) {
   try {
-    $wait = Get-Content -LiteralPath (Join-Path $env:USERPROFILE '.claude\autopilot-waiting.json') -Raw -ErrorAction Stop | ConvertFrom-Json
+    $wait = Get-Content -LiteralPath (Join-Path $env:USERPROFILE '.claude\allocate-waiting.json') -Raw -ErrorAction Stop | ConvertFrom-Json
     $repo = Split-Path -Leaf $repoRoot
     $fresh = ([DateTime]::UtcNow - [DateTime]::Parse($wait.at).ToUniversalTime()).TotalMinutes -lt 10
     if ($fresh -and ($wait.repos | Where-Object { $_ -ieq $repo })) {
