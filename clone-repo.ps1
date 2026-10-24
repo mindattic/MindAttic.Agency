@@ -48,10 +48,15 @@ if (Test-Path -LiteralPath $target) {
 
 # C) - tag it on GitHub, merged with whatever topics it already carries (a template repo may
 # ship with some). This is the only lever MindAttic.Launcher's roster filter reads.
+# Both gh calls' exit codes are checked: a failed read must not be treated as "no existing
+# topics" (that would make the PUT below wipe them), and a failed write must not be reported as
+# success (MAT-T43).
 $existing = @(gh api "repos/$fullName/topics" --jq '.names[]' 2>$null)
+if ($LASTEXITCODE -ne 0) { throw "gh api repos/$fullName/topics failed (exit $LASTEXITCODE); refusing to guess its existing topics." }
 $topics = @($existing + $Topic | Select-Object -Unique)
 $namesArgs = $topics | ForEach-Object { @('-f', "names[]=$_") }
 gh api -X PUT "repos/$fullName/topics" @namesArgs | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "gh api -X PUT repos/$fullName/topics failed (exit $LASTEXITCODE)." }
 Write-Output "tagged $fullName with: $($topics -join ', ')"
 
 # D) - restart any open Launcher *program* instance so its roster (and Discover Projects)
