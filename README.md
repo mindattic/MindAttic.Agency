@@ -11,7 +11,7 @@ Install or refresh the thin pointers for all sibling repositories from the works
 powershell -File mindattic-agent-standard/install.ps1
 ```
 
-The runner accepts `bootstrap`, `save`, `load`, `do`, `progress`, `show`, and `queue`. Project-specific
+The runner accepts `bootstrap`, `save`, `load`, `do`, `progress`, `show`, `queue`, and `handoffs`. Project-specific
 commands remain in the project repository's catalog, while common lifecycle commands live here.
 
 `/quicksave`, `/quickload`, `/do`, `/commit`, `/deploy`, `/progress` are also real global commands at
@@ -24,6 +24,17 @@ Each repo's `.agent/` folder also holds the runner's portable handoff (`agent-se
 bookmark queue (`agent-queue.json`), both git-ignored. The folder was `.prose/` until MAT-T39 (the
 name read as the separate Prose product); the runner moves an old `.prose/` handoff and queue across
 on first use, and `install.ps1` moves the command pointers and rewrites `.gitignore` entries.
+
+Every `save` also picks a shareable handoff code, an adjective-animal pair from
+`shared/handoff-words/` (e.g. `lively-oxen`), regenerated on collision with any unconsumed code, and
+records the handoff (repo/worktree and branch, login, task, decisions, state, next, queue) in the
+machine-wide registry `%LOCALAPPDATA%\MindAttic\handoffs\<code>.json` (override: `-RegistryRoot` or
+`MINDATTIC_HANDOFF_REGISTRY`). Every login on the machine shares it, so `load <code>`
+(`/quickload <code>`) restores that exact handoff from any login's CLI in any folder; loading
+consumes the code (archived under `consumed\`, never deleted) and frees it for reuse. `handoffs`
+lists the unconsumed codes. The global `/quicksave` and `/quickload` definitions live in
+`shared/commands/`; `share-scripts.ps1` (run by `install.ps1`) installs them into
+`~/.claude/commands/`.
 
 ## Docs site pipeline (HOUSE-LAW-14)
 

@@ -79,6 +79,23 @@ if ($existing -notcontains $hookCommand) {
 }
 if ($globalChanged -and -not $WhatIf) { Save-Json $globalPath $global }
 
+# -- Global commands: shared/commands/*.md is the source of the global /quicksave, /quickload ... --
+# A global command that differs is backed up (outside the repos), then replaced with the shared copy.
+$globalCommands = Join-Path $GlobalClaudeRoot 'commands'
+foreach ($cmd in Get-ChildItem -LiteralPath (Join-Path $shared 'commands') -Filter '*.md' -File -ErrorAction SilentlyContinue) {
+    $dest = Join-Path $globalCommands $cmd.Name
+    if ((Test-Path -LiteralPath $dest) -and (Get-Md5 $dest) -eq (Get-Md5 $cmd.FullName)) { continue }
+    Write-Output "global: command /$($cmd.BaseName) -> $($cmd.FullName)"
+    if ($WhatIf) { continue }
+    New-Item -ItemType Directory -Force -Path $globalCommands | Out-Null
+    if (Test-Path -LiteralPath $dest) {
+        $backup = Join-Path $env:LOCALAPPDATA "MindAttic\share-scripts-backup\$stamp\_global\commands"
+        New-Item -ItemType Directory -Force -Path $backup | Out-Null
+        Copy-Item -LiteralPath $dest -Destination (Join-Path $backup $cmd.Name)
+    }
+    Copy-Item -LiteralPath $cmd.FullName -Destination $dest -Force
+}
+
 # ── Repos: drop identical copies and the settings entries that run them ─────
 $left = @()
 foreach ($repo in Get-ChildItem -LiteralPath $WorkspaceRoot -Directory) {
