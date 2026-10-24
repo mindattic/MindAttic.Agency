@@ -119,6 +119,11 @@ switch ($Command) {
     exit 0
   }
   'progress' {
+    # Outside Prose, progress means subagent progress (the global /progress); Prose keeps its strand dashboard.
+    if ((-not $cliDll -or -not (Test-Path -LiteralPath $cliDll)) -and -not $Universe) {
+      $agentArgs=@{}; if ($Json) { $agentArgs.Json=$true }
+      & (Join-Path $PSScriptRoot 'agent-progress.ps1') @agentArgs; exit $LASTEXITCODE
+    }
     $cliArgs=@('--progress'); if ($Json) {$cliArgs+='--json'}; if($Universe){$cliArgs=@('--universe',$Universe)+$cliArgs}; Invoke-ProseCli $cliArgs|Write-Output; exit $LASTEXITCODE
   }
   'show' {

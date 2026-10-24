@@ -11,7 +11,12 @@ protocol. Common commands are implemented once, at the global level, so every re
 - `/deploy` — global router at `~/.claude/commands/deploy.md`: defers to the repo's own
   `deploy.ps1`, else routes through MindAttic.Deploy, else says plainly that the repo has no
   automated deploy. Per-project deploy *behavior* still varies — the router doesn't.
-- `/progress`, `/show`, `/bootstrap`, `/queue` — implemented directly by the shared runner
+- `/progress` — a real global command at `~/.claude/commands/progress.md` that runs
+  `mindattic-agent-standard/agent-progress.ps1`: every running subagent (any session or project),
+  its ticket, what it is doing now, and an estimated percent done from its milestones (explore →
+  edit → test → commit → push → ticket closed). `prose-agent.ps1 progress` runs the same report
+  outside Prose; inside Prose, Prose's own project `/progress` (the strand dashboard) still wins.
+- `/show`, `/bootstrap`, `/queue` — implemented directly by the shared runner
   (`prose-agent.ps1`); invoke it by path rather than duplicating its logic.
 
 ## Cloning a new repo

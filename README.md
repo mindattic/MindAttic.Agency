@@ -14,7 +14,7 @@ powershell -File mindattic-agent-standard/install.ps1
 The runner accepts `bootstrap`, `save`, `load`, `do`, `progress`, `show`, and `queue`. Project-specific
 commands remain in the project repository's catalog, while common lifecycle commands live here.
 
-`/quicksave`, `/quickload`, `/do`, `/commit`, `/deploy` are also real global commands at
+`/quicksave`, `/quickload`, `/do`, `/commit`, `/deploy`, `/progress` are also real global commands at
 `~/.claude/commands/` — present for every repo on Day 1, with no per-project `.claude/commands`
 copy and no `install.ps1` run required. `install.ps1` still projects provider-neutral pointers
 (`.prose/commands/*.md`) for non-Claude clients, mirroring whatever it finds in that global
