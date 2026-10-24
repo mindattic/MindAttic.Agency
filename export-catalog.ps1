@@ -13,8 +13,14 @@ function Add-File([string]$scope,[string]$project,[string]$kind,[string]$path,[s
     $items.Add([ordered]@{scope=$scope;project=$project;kind=$kind;name=$name;path=$rel})
   }
 }
+# Exclude by full path, not just each folder's own leaf name: checking only $_.Name let -Recurse
+# still catalog vendored content *under* an excluded folder as its own "project" (e.g. a Unity
+# package under Library\PackageCache\com.unity.timeline@.../.claude\skills\... was filed as
+# project "com.unity.timeline@..." - MAT-T44). genericize-instructions.ps1 already excludes this
+# way; match it here.
+$excludedDirPattern = '\\(node_modules|PackageCache|\.git|\.vs|_dropbox|mindattic-agent-standard|codex-standard)(\\|$)'
 $dirs = Get-ChildItem -LiteralPath $WorkspaceRoot -Recurse -Directory -Force -ErrorAction SilentlyContinue |
-  Where-Object { $_.Name -notin @('.git','.vs','_dropbox','node_modules','PackageCache','mindattic-agent-standard','codex-standard') -and ((Test-Path (Join-Path $_.FullName '.git')) -or (Test-Path (Join-Path $_.FullName '.claude'))) }
+  Where-Object { $_.FullName -notmatch $excludedDirPattern -and ((Test-Path (Join-Path $_.FullName '.git')) -or (Test-Path (Join-Path $_.FullName '.claude'))) }
 foreach($d in $dirs) {
   foreach($f in Get-ChildItem (Join-Path $d.FullName '.claude\commands') -File -ErrorAction SilentlyContinue){ Add-File 'project' $d.Name 'command' $f.FullName }
   $skillsRoot = Join-Path $d.FullName '.claude\skills'
