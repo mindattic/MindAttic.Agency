@@ -59,18 +59,18 @@ repo were renamed from `master` on 2026-10-16; four archived repos, MindAttic.Bo
 This applies to every commit, whoever makes it (`/commit`, autopilot, the orchestrator, a subagent, a
 manual `git commit`):
 
-- Every commit names its workflow ticket. The subject line ends with the ticket ID in parentheses,
-  e.g. `... (M.ORCH-T56)`. A commit that has no ticket yet gets one *before* it's made: `workflow ticket
+- Every commit names its ticket. The subject line ends with the ticket ID in parentheses,
+  e.g. `... (M.ORCH-T56)`. A commit that has no ticket yet gets one *before* it's made: `tickets ticket
   new` prints the new ID. Work the user asked for directly counts as approved, so its ticket can be
   logged `--status closed` when the commit finishes it. Every repo's `commit-msg` hook
   (`shared/hooks/commit-msg`, installed by `install-commit-hooks.ps1`) refuses a commit whose subject
-  doesn't end with an ID that exists in the workflow database; merges, reverts and fixup!/squash!
+  doesn't end with an ID that exists in the ticket database; merges, reverts and fixup!/squash!
   commits pass. Never bypass it with `--no-verify`.
 - A commit holds the work of one ticket (and the story it belongs to) and nothing else. Two
   tickets or stories mean two commits. Stage by explicit path, and split a file that holds hunks
   for different tickets (stage only that ticket's hunks). Leave anything that belongs to another
   ticket, or to no ticket of yours, unstaged.
-- The workflow database and its generated `docs/USER_STORIES.md` are the only shared files that may
+- The ticket database and its generated `docs/USER_STORIES.md` are the only shared files that may
   ride along, and only for the ticket being committed.
 
 Never copy a command's body into a provider-specific or per-project folder. A client-specific

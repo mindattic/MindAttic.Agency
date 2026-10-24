@@ -1,5 +1,5 @@
 #!/bin/sh
-# MindAttic commit rule: every commit's subject ends with an existing workflow ticket ID, e.g. "... (M.ORCH-T12)".
+# MindAttic commit rule: every commit's subject ends with an existing ticket ID, e.g. "... (M.ORCH-T12)".
 subject=$(sed 's/\r$//' "$1" | grep -v '^#' | sed '/^[[:space:]]*$/d' | head -n 1)
 
 case "$subject" in
@@ -11,19 +11,22 @@ id=$(printf '%s\n' "$subject" | sed -n 's/.*(\([A-Z][A-Z0-9]*\(\.[A-Z0-9][A-Z0-9
 
 if [ -z "$id" ]; then
   cat >&2 <<'EOF'
-commit refused: the subject line must end with its workflow ticket ID in parentheses, e.g. "... (M.ORCH-T12)".
-No ticket yet? Create one first: workflow ticket new --type feature|fix|chore|docs --summary "..." (it prints the ID).
+commit refused: the subject line must end with its ticket ID in parentheses, e.g. "... (M.ORCH-T12)".
+No ticket yet? Create one first: tickets ticket new --type feature|fix|chore|docs --summary "..." (it prints the ID).
 One ticket per commit: stage only that ticket's files and hunks.
 EOF
   exit 1
 fi
 
-if ! command -v workflow >/dev/null 2>&1; then
-  echo "commit refused: the workflow CLI isn't on PATH, so ticket $id can't be checked." >&2
+# The CLI is `tickets` (MindAttic.Tickets); `workflow` is its name from before the rename (M.TIX-T120).
+cli=tickets
+command -v tickets >/dev/null 2>&1 || cli=workflow
+if ! command -v "$cli" >/dev/null 2>&1; then
+  echo "commit refused: the tickets CLI isn't on PATH, so ticket $id can't be checked." >&2
   exit 1
 fi
 
-if ! workflow ticket show "$id" >/dev/null 2>&1; then
-  echo "commit refused: ticket $id isn't in the workflow database. Check the ID (workflow ticket list) or create the ticket first (workflow ticket new)." >&2
+if ! "$cli" ticket show "$id" >/dev/null 2>&1; then
+  echo "commit refused: ticket $id isn't in the ticket database. Check the ID (tickets ticket list) or create the ticket first (tickets ticket new)." >&2
   exit 1
 fi
