@@ -1,8 +1,15 @@
 ﻿{
     "standard":  "MindAttic Agent Standard",
     "protocolVersion":  "1.0",
-    "generatedAt":  "2026-10-24T06:47:18.6953129Z",
+    "generatedAt":  "2026-11-01T21:03:41.0793494Z",
     "items":  [
+                  {
+                      "scope":  "project",
+                      "project":  "AutoGamePlay",
+                      "kind":  "instructions",
+                      "name":  "CLAUDE",
+                      "path":  "AutoGamePlay\\CLAUDE.md"
+                  },
                   {
                       "scope":  "project",
                       "project":  "Automata",
@@ -75,6 +82,27 @@
                   },
                   {
                       "scope":  "project",
+                      "project":  "IdeaCms",
+                      "kind":  "command",
+                      "name":  "deploy",
+                      "path":  "IdeaCms\\.claude\\commands\\deploy.md"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "IdeaCms",
+                      "kind":  "hook",
+                      "name":  "inject-digest",
+                      "path":  "IdeaCms\\.claude\\hooks\\inject-digest.ps1"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "IdeaCms",
+                      "kind":  "instructions",
+                      "name":  "CLAUDE",
+                      "path":  "IdeaCms\\CLAUDE.md"
+                  },
+                  {
+                      "scope":  "project",
                       "project":  "IdiotProof",
                       "kind":  "command",
                       "name":  "deploy",
@@ -133,6 +161,13 @@
                       "scope":  "project",
                       "project":  "IdiotProof",
                       "kind":  "hook",
+                      "name":  "build-idiotproof-mcp",
+                      "path":  "IdiotProof\\.claude\\hooks\\build-idiotproof-mcp.ps1"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "IdiotProof",
+                      "kind":  "hook",
                       "name":  "inject-digest",
                       "path":  "IdiotProof\\.claude\\hooks\\inject-digest.ps1"
                   },
@@ -142,6 +177,13 @@
                       "kind":  "hook",
                       "name":  "quickload-on-do",
                       "path":  "IdiotProof\\.claude\\hooks\\quickload-on-do.ps1"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "IdiotProof",
+                      "kind":  "hook",
+                      "name":  "start-hub",
+                      "path":  "IdiotProof\\.claude\\hooks\\start-hub.ps1"
                   },
                   {
                       "scope":  "project",
@@ -271,27 +313,6 @@
                   },
                   {
                       "scope":  "project",
-                      "project":  "MindAttic.Ideas",
-                      "kind":  "command",
-                      "name":  "deploy",
-                      "path":  "MindAttic.Ideas\\.claude\\commands\\deploy.md"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "MindAttic.Ideas",
-                      "kind":  "hook",
-                      "name":  "inject-digest",
-                      "path":  "MindAttic.Ideas\\.claude\\hooks\\inject-digest.ps1"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "MindAttic.Ideas",
-                      "kind":  "instructions",
-                      "name":  "CLAUDE",
-                      "path":  "MindAttic.Ideas\\CLAUDE.md"
-                  },
-                  {
-                      "scope":  "project",
                       "project":  "MindAttic.Launcher",
                       "kind":  "hook",
                       "name":  "inject-digest",
@@ -352,6 +373,20 @@
                       "kind":  "instructions",
                       "name":  "CLAUDE",
                       "path":  "MindAttic.Psst\\CLAUDE.md"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "MindAttic.Relay",
+                      "kind":  "hook",
+                      "name":  "inject-digest",
+                      "path":  "MindAttic.Relay\\.claude\\hooks\\inject-digest.ps1"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "MindAttic.Relay",
+                      "kind":  "instructions",
+                      "name":  "CLAUDE",
+                      "path":  "MindAttic.Relay\\CLAUDE.md"
                   },
                   {
                       "scope":  "project",
@@ -600,6 +635,13 @@
                   },
                   {
                       "scope":  "project",
+                      "project":  "RusNet",
+                      "kind":  "instructions",
+                      "name":  "CLAUDE",
+                      "path":  "RusNet\\CLAUDE.md"
+                  },
+                  {
+                      "scope":  "project",
                       "project":  "SyntheticExchangeTheory",
                       "kind":  "hook",
                       "name":  "quickload-on-do",
@@ -782,13 +824,6 @@
                   },
                   {
                       "scope":  "project",
-                      "project":  "Unity.Chain",
-                      "kind":  "instructions",
-                      "name":  "CLAUDE",
-                      "path":  "Unity.Chain\\CLAUDE.md"
-                  },
-                  {
-                      "scope":  "project",
                       "project":  "Unity.Cursory",
                       "kind":  "instructions",
                       "name":  "CLAUDE",
@@ -838,13 +873,6 @@
                   },
                   {
                       "scope":  "project",
-                      "project":  "Unity.Incognito",
-                      "kind":  "instructions",
-                      "name":  "CLAUDE",
-                      "path":  "Unity.Incognito\\CLAUDE.md"
-                  },
-                  {
-                      "scope":  "project",
                       "project":  "Unity.Multiplayer",
                       "kind":  "instructions",
                       "name":  "CLAUDE",
@@ -852,31 +880,45 @@
                   },
                   {
                       "scope":  "project",
-                      "project":  "Unity.Overworld",
+                      "project":  "Unity.Rea.Chain",
                       "kind":  "instructions",
                       "name":  "CLAUDE",
-                      "path":  "Unity.Overworld\\CLAUDE.md"
+                      "path":  "Unity.Rea.Chain\\CLAUDE.md"
                   },
                   {
                       "scope":  "project",
-                      "project":  "Unity.ProjectVania",
+                      "project":  "Unity.Rea.Incognito",
                       "kind":  "instructions",
                       "name":  "CLAUDE",
-                      "path":  "Unity.ProjectVania\\CLAUDE.md"
+                      "path":  "Unity.Rea.Incognito\\CLAUDE.md"
                   },
                   {
                       "scope":  "project",
-                      "project":  "Unity.QuickDuel",
+                      "project":  "Unity.Rea.Overworld",
                       "kind":  "instructions",
                       "name":  "CLAUDE",
-                      "path":  "Unity.QuickDuel\\CLAUDE.md"
+                      "path":  "Unity.Rea.Overworld\\CLAUDE.md"
                   },
                   {
                       "scope":  "project",
-                      "project":  "Unity.Ricochet",
+                      "project":  "Unity.Rea.ProjectVania",
                       "kind":  "instructions",
                       "name":  "CLAUDE",
-                      "path":  "Unity.Ricochet\\CLAUDE.md"
+                      "path":  "Unity.Rea.ProjectVania\\CLAUDE.md"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "Unity.Rea.QuickDuel",
+                      "kind":  "instructions",
+                      "name":  "CLAUDE",
+                      "path":  "Unity.Rea.QuickDuel\\CLAUDE.md"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "Unity.Rea.Ricochet",
+                      "kind":  "instructions",
+                      "name":  "CLAUDE",
+                      "path":  "Unity.Rea.Ricochet\\CLAUDE.md"
                   },
                   {
                       "scope":  "project",
@@ -1113,6 +1155,13 @@
                       "scope":  "global",
                       "project":  "global",
                       "kind":  "command",
+                      "name":  "capture",
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\capture.md"
+                  },
+                  {
+                      "scope":  "global",
+                      "project":  "global",
+                      "kind":  "command",
                       "name":  "commit",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\commit.md"
                   },
@@ -1183,6 +1232,13 @@
                       "scope":  "global",
                       "project":  "global",
                       "kind":  "command",
+                      "name":  "qq",
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\qq.md"
+                  },
+                  {
+                      "scope":  "global",
+                      "project":  "global",
+                      "kind":  "command",
                       "name":  "quickload",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\quickload.md"
                   },
@@ -1192,6 +1248,20 @@
                       "kind":  "command",
                       "name":  "quicksave",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\quicksave.md"
+                  },
+                  {
+                      "scope":  "global",
+                      "project":  "global",
+                      "kind":  "command",
+                      "name":  "test",
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\test.md"
+                  },
+                  {
+                      "scope":  "global",
+                      "project":  "global",
+                      "kind":  "command",
+                      "name":  "tests",
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\tests.md"
                   },
                   {
                       "scope":  "global",

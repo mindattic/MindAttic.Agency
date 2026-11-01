@@ -41,7 +41,7 @@ skipped past the clone step for a repo already on disk — see the script's own 
 
 ## Branches
 
-Every repo's main line is `main` (Automata, MindAttic.Authentication, MindAttic.Ideas, Prose and this workspace root
+Every repo's main line is `main` (Automata, MindAttic.Authentication, IdeaCms (then MindAttic.Ideas), Prose and this workspace root
 repo were renamed from `master` on 2026-10-16; four archived repos, MindAttic.Bob among them, are read-only and stay as they are). Rebase onto and push to `origin/main`; never push
 `master` anywhere: it would only recreate a stray branch, and the pace gate refuses it.
 

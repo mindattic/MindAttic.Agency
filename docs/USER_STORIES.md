@@ -101,3 +101,4 @@ _Nothing recorded yet._
 | MAT-T78 | 2026-10-31 | feature | open | One deploy for the core trio: Tickets, Launcher and Orchestrator are all installed (in that order, stopping on the first failure) before any UI starts, then the Orchestrator dashboard is launched | — |
 | MAT-T79 | 2026-10-31 | chore | closed | Remove deploy-core.ps1: the user doesn't want Tickets, Launcher and Orchestrator deployed together; each is deployed on its own with its run.ps1 | aae4f93 |
 | MAT-T80 | 2026-10-31 | docs | closed | Update USER_STORIES.md | — |
+| MAT-T81 | 2026-11-01 | chore | closed | Workspace registry: pick up MindAttic.Ideas -> IdeaCms rename (command catalog, workspace-repos.json) | — |
