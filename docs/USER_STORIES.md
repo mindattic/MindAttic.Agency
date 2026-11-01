@@ -95,3 +95,9 @@ _Nothing recorded yet._
 | MAT-T72 | 2026-10-27 | feature | open | Every MindAttic program gets the same launcher: 1) Deploy & Run installs it to C:\Apps\<App> and runs it from there, 2) Run runs the installed copy from C:\Apps | — |
 | MAT-T73 | 2026-10-27 | feature | open | Add a Desktop shortcut (targeting run.bat) for every Unity game, beyond the 6 already shipped | — |
 | MAT-T74 | 2026-10-27 | docs | closed | Update USER_STORIES.md | — |
+| MAT-T75 | 2026-10-29 | chore | closed | Workspace registry: rename the 7 Unity.* repo entries to Unity.Rea.* after their GitHub/folder renames | 6e7faa0 |
+| MAT-T76 | 2026-10-29 | fix | closed | prose-agent.ps1 Invoke-ProseCli returned $LASTEXITCODE, which rides the pipeline and prints the exit code as a stray trailing line after bootstrap/progress/show output | bughunt, verified by manual repro + mindattic-agent-standard/tests suite (14/14 green) |
+| MAT-T77 | 2026-10-29 | fix | closed | clone-repo.ps1's live-menu-instance detection double-stripped the command line, misclassifying a bare one-word CLI subcommand (e.g. 'version') as the argument-less menu and killing it | bughunt, verified by manual regex repro |
+| MAT-T78 | 2026-10-31 | feature | open | One deploy for the core trio: Tickets, Launcher and Orchestrator are all installed (in that order, stopping on the first failure) before any UI starts, then the Orchestrator dashboard is launched | — |
+| MAT-T79 | 2026-10-31 | chore | closed | Remove deploy-core.ps1: the user doesn't want Tickets, Launcher and Orchestrator deployed together; each is deployed on its own with its run.ps1 | aae4f93 |
+| MAT-T80 | 2026-10-31 | docs | closed | Update USER_STORIES.md | — |
