@@ -9,13 +9,20 @@ protocol. Common commands are implemented once, at the global level, so every re
 - `/commit` — global, Claude Code's own `~/.claude/commands/commit.md`.
 - `/run` — global, a Claude Code built-in skill; no MindAttic-specific file needed.
 - `/deploy` — global router at `~/.claude/commands/deploy.md`: defers to the repo's own
-  `deploy.ps1`, else routes through MindAttic.Deploy, else says plainly that the repo has no
+  `run.ps1` (renamed from `deploy.ps1`; its generated `run.bat` launcher asks Deploy & Run or Run), else routes through MindAttic.Deploy, else says plainly that the repo has no
   automated deploy. Per-project deploy *behavior* still varies — the router doesn't.
 - `/progress` — a real global command at `~/.claude/commands/progress.md` that runs
   `mindattic-agent-standard/agent-progress.ps1`: every running subagent (any session or project),
   its ticket, what it is doing now, and an estimated percent done from its milestones (explore →
   edit → test → commit → push → ticket closed). `prose-agent.ps1 progress` runs the same report
   outside Prose; inside Prose, Prose's own project `/progress` (the strand dashboard) still wins.
+- `/test` — a real global command at `~/.claude/commands/test.md` (source
+  `shared/commands/test.md`): runs the current repo's entire test suite on `origin/main` in a clean
+  worktree, names every failure and files a fix ticket for each. It is the explicit way to ask for
+  tests (see "Tests run only when the user says so"). `/tests` is an alias (`shared/commands/tests.md`, a
+  forwarder to `test.md`). **`/run tests` (or `/run test`) is an alias too:**
+  when the built-in `/run` skill is invoked with `tests` or `test` as its whole argument, don't launch
+  the app; follow `/test` (read `shared/commands/test.md`) instead.
 - `/show`, `/bootstrap`, `/queue` — implemented directly by the shared runner
   (`prose-agent.ps1`); invoke it by path rather than duplicating its logic.
 
@@ -41,6 +48,11 @@ skipped past the clone step for a repo already on disk — see the script's own 
 
 ## Branches
 
+**GOLDEN RULE (see `MINDATTIC_AGENT.md`): always layer code on top.** Work only in the repo's own
+checkout, on `main`, on top of the latest `origin/main`. Never create a separate branch or worktree
+(no `git checkout -b`, no `git worktree add`, no subagent isolation worktrees), unless the user
+explicitly asks for one in that request.
+
 Every repo's main line is `main` (Automata, MindAttic.Authentication, IdeaCms (then MindAttic.Ideas), Prose and this workspace root
 repo were renamed from `master` on 2026-10-16; four archived repos, MindAttic.Bob among them, are read-only and stay as they are). Rebase onto and push to `origin/main`; never push
 `master` anywhere: it would only recreate a stray branch, and the pace gate refuses it.
@@ -54,6 +66,48 @@ repo were renamed from `master` on 2026-10-16; four archived repos, MindAttic.Bo
   non-fix ticket is never worked until the user approves it (`orchestrator approve <ID>`); the orchestrator,
   `/allocate` and keep-going skip it until then, and so must you.
 
+## Every request is a ticket, filed first
+
+**GOLDEN RULE (see `MINDATTIC_AGENT.md`): every action that writes code is aligned to a ticket.** Each request
+becomes a new ticket, or is appended to the existing ticket it belongs to with `tickets ticket note <ID> "..."`,
+before any code is written for it. No edit, commit or deploy without a ticket.
+
+- Step one for every task the user gives, in any CLI, is its ticket: `tickets ticket new` (in the repo the
+  work lives in; another repo's part gets its own ticket there) before reading, editing or running anything
+  for it. A burst of requests gets one ticket each, filed as each arrives, not backfilled at the end: a
+  crashed session then loses at most the code, never the record of what was asked. Work the user asked for
+  directly counts as approved (see Commits).
+- Every message the agent prints starts with the ticket it's about, ID and title, e.g.
+  `**[M.ORCH-T844 — Rename the dashboard exe]**`, so the user always knows which task it comes from.
+
+## Tests run only when the user says so
+
+Never run a test suite (or a filtered slice of one) on your own while working: a run can take 15 minutes and
+blocks everything behind it. Check work by building it. Tests run only when the user explicitly asks for them
+(`/test`, or `/run tests`, runs a repo's whole suite); `/commit` does not run them (a test run per commit would mean
+endless testing).
+
+## Never ask the user to say "continue": wait out the pace yourself
+
+Applies to every CLI, every login and every provider. Never end a turn with "say continue when
+you're ready", "let me know when to resume" or anything like it because usage is high: the user
+should never have to come back just to type a word. When the login is over its 5-hour pace, wait
+and resume on your own:
+
+- **Read the pace from `rl-status.json`** in the login's own Claude home (`$CLAUDE_CONFIG_DIR`,
+  else `~/.claude`). Its `subagent_note` field (written by MindAttic.Orchestrator's pacer) says
+  `Cooling off` or `ahead of` the 5-hour pace while the login is over it.
+- **Wait on a background timer, not on the user.** Start a background poll (e.g. a background shell
+  loop, Monitor with an until-condition, or a one-shot wakeup) that re-reads `subagent_note` every
+  minute or two and finishes once it no longer says `Cooling off` or `ahead of`; then pick the
+  work back up where it stopped, without being asked. At or past the hard 5-hour stop, schedule the
+  resume for the window's reset (plus about two minutes) instead.
+- **Keep each login at or under 98% of its 5-hour window.** That is the hard cutoff; the wait above
+  exists so a login never runs past it.
+- **Ramp subagents up gradually: 3-4 at once, then more as the note allows.** The pacer's forecast
+  is rate-based, so a burst of new subagents spikes the rate and overshoots the line before the
+  forecast catches it. Start a few, let `subagent_note` settle, then add more.
+
 ## Commits: one ticket, one story, nothing else
 
 This applies to every commit, whoever makes it (`/commit`, `/allocate`, the orchestrator, a subagent, a
@@ -66,6 +120,10 @@ manual `git commit`):
   (`shared/hooks/commit-msg`, installed by `install-commit-hooks.ps1`) refuses a commit whose subject
   doesn't end with an ID that exists in the ticket database; merges, reverts and fixup!/squash!
   commits pass. Never bypass it with `--no-verify`.
+- **Commit by path: `git commit -m "<subject>" -- <path> <path> ...`.** Checkouts are shared (the GOLDEN RULE:
+  no separate worktrees), so the index may already hold another agent's staged files; a bare `git commit` takes
+  them too. Naming the paths after `--` commits exactly those files, whatever else is staged (`git add` only new
+  files first). Never `git add -A`/`git add .`, `git stash`, `git reset` or `git checkout --` in a shared checkout.
 - A commit holds the work of one ticket (and the story it belongs to) and nothing else. Two
   tickets or stories mean two commits. Stage by explicit path, and split a file that holds hunks
   for different tickets (stage only that ticket's hunks). Leave anything that belongs to another

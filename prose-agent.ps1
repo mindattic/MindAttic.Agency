@@ -154,9 +154,11 @@ function Get-Queue {
 }
 
 function Invoke-ProseCli([string[]]$cliArgs) {
-  # Let the native call's own stdout stream through untouched; $LASTEXITCODE is left set by it
-  # for the caller to read directly. (Returning it here would also push it onto the output
-  # stream, appending a spurious exit-code line after the CLI's real output -- MAT-T41.)
+  # Let the native call's own stdout stream through untouched (every caller relays it with
+  # `| Write-Output`, MAT-T76); $LASTEXITCODE is left set by it for the caller to read directly,
+  # since it's PowerShell's global automatic variable, not function-scoped. Do not return it here:
+  # a function's return value joins its output stream, appending a spurious exit-code line after
+  # the CLI's real output (MAT-T41, MAT-T76).
   $project = Join-Path $RepoRoot 'v3\Prose.Cli\Prose.Cli.csproj'
   if (Test-Path -LiteralPath $cliDll) { & dotnet $cliDll @cliArgs }
   elseif (Test-Path -LiteralPath $project) { & dotnet run --project $project -- @cliArgs }
@@ -167,7 +169,7 @@ switch ($Command) {
   'bootstrap' {
     $cliArgs = @('agent','bootstrap'); if ($Json) { $cliArgs += '--json' }
     if ($Universe) { $cliArgs = @('--universe',$Universe) + $cliArgs }
-    Invoke-ProseCli $cliArgs; exit $LASTEXITCODE
+    Invoke-ProseCli $cliArgs | Write-Output; exit $LASTEXITCODE
   }
   'save' {
     if ([string]::IsNullOrWhiteSpace($Task) -or [string]::IsNullOrWhiteSpace($Next)) { throw 'save requires -Task and -Next' }
@@ -280,9 +282,9 @@ switch ($Command) {
       $agentArgs=@{}; if ($Json) { $agentArgs.Json=$true }
       & (Join-Path $PSScriptRoot 'agent-progress.ps1') @agentArgs; exit $LASTEXITCODE
     }
-    $cliArgs=@('--progress'); if ($Json) {$cliArgs+='--json'}; if($Universe){$cliArgs=@('--universe',$Universe)+$cliArgs}; Invoke-ProseCli $cliArgs; exit $LASTEXITCODE
+    $cliArgs=@('--progress'); if ($Json) {$cliArgs+='--json'}; if($Universe){$cliArgs=@('--universe',$Universe)+$cliArgs}; Invoke-ProseCli $cliArgs | Write-Output; exit $LASTEXITCODE
   }
   'show' {
-    if ([string]::IsNullOrWhiteSpace($Subject)) { throw 'show requires -Subject' }; $cliArgs=@('--show','--subject',$Subject); if($Aspect){$cliArgs+=@('--aspect',$Aspect)}; if($Json){$cliArgs+='--json'}; if($Universe){$cliArgs=@('--universe',$Universe)+$cliArgs}; Invoke-ProseCli $cliArgs; exit $LASTEXITCODE
+    if ([string]::IsNullOrWhiteSpace($Subject)) { throw 'show requires -Subject' }; $cliArgs=@('--show','--subject',$Subject); if($Aspect){$cliArgs+=@('--aspect',$Aspect)}; if($Json){$cliArgs+='--json'}; if($Universe){$cliArgs=@('--universe',$Universe)+$cliArgs}; Invoke-ProseCli $cliArgs | Write-Output; exit $LASTEXITCODE
   }
 }

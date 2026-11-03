@@ -101,6 +101,24 @@ if ($j -and $j.rate_limits) {
       $usage = $usage | ConvertTo-Json -Depth 5 -Compress
       [IO.File]::WriteAllText("$file.$PID.tmp", $usage)
       Move-Item -LiteralPath "$file.$PID.tmp" -Destination $file -Force
+      # Tell MindAttic.Orchestrator's daemon at once, on its status inbox (M.ORCH-T892), so dashboards get the reading now
+      # rather than at its next slow look at the file. Best effort: no daemon, a busy pipe or anything else is skipped within
+      # ~50ms and never breaks the statusline. The pipe name is the daemon's (StatusStream.InboxPipeName): the Windows user
+      # name with every character that isn't a letter or digit made '-'.
+      try {
+        $user = -join ([Environment]::UserName.ToCharArray() | ForEach-Object { if ([char]::IsLetterOrDigit($_)) { $_ } else { '-' } })
+        $line = [ordered]@{
+          kind = 'usage-written'; v = 1; at = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'); pid = $PID
+          payload = [ordered]@{ path = $file; email = $account }
+        } | ConvertTo-Json -Depth 3 -Compress
+        $pipe = New-Object IO.Pipes.NamedPipeClientStream('.', "mindattic-orchestrator-status-in-$user", [IO.Pipes.PipeDirection]::Out)
+        try {
+          $pipe.Connect(50)
+          $bytes = (New-Object Text.UTF8Encoding($false)).GetBytes($line + "`n")
+          $pipe.Write($bytes, 0, $bytes.Length)
+          $pipe.Flush()
+        } finally { $pipe.Dispose() }
+      } catch { }
     }
   } catch { }
 }
@@ -138,8 +156,20 @@ $branch = ''
 $repoRoot = ''
 $dir = $cwd
 for ($i = 0; $i -lt 6 -and $dir; $i++) {
-  $head = Join-Path $dir '.git\HEAD'
-  if (Test-Path $head) {
+  $dotGit = Join-Path $dir '.git'
+  $head = Join-Path $dotGit 'HEAD'
+  # In a linked worktree (e.g. .claude\worktrees\<name>) .git is a *file* reading "gitdir: <path>",
+  # and that worktree's own HEAD lives under the path it names. Without this the walk skipped the
+  # worktree and showed the parent checkout's branch instead.
+  if (Test-Path -LiteralPath $dotGit -PathType Leaf) {
+    $gitdirLine = (Get-Content -LiteralPath $dotGit -TotalCount 1 -ErrorAction SilentlyContinue)
+    if ($gitdirLine -match '^gitdir:\s*(.+?)\s*$') {
+      $gitdir = $Matches[1]
+      if (-not [IO.Path]::IsPathRooted($gitdir)) { $gitdir = Join-Path $dir $gitdir }
+      $head = Join-Path $gitdir 'HEAD'
+    }
+  }
+  if (Test-Path -LiteralPath $head -PathType Leaf) {
     $repoRoot = $dir
     $h = (Get-Content -LiteralPath $head -Raw -ErrorAction SilentlyContinue).Trim()
     if ($h -match '^ref:\s*refs/heads/(.+)$') { $branch = $Matches[1] }
