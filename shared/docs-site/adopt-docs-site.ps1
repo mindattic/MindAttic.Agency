@@ -37,7 +37,10 @@ if (-not (Test-Path -LiteralPath (Join-Path $root '.git'))) { throw "Not a repo:
 # $root would target the wrong GitHub repo (MAT-T30, MAT-T33). Prefer the git remote (origin),
 # then -Repo itself when it's a bare name rather than a path, and only then the folder name.
 $name = $null
-$originUrl = (git -C $root remote get-url origin 2>$null)
+# Windows PowerShell turns git's stderr ("No such remote 'origin'") into a terminating error under
+# ErrorActionPreference=Stop even with 2>$null, which would skip the fallbacks below; catch it.
+$originUrl = $null
+try { $originUrl = (git -C $root remote get-url origin 2>$null) } catch { $originUrl = $null }
 if ($LASTEXITCODE -eq 0 -and $originUrl) {
     $name = ($originUrl.Trim() -replace '\.git$', '').TrimEnd('/').Split('/')[-1]
 }

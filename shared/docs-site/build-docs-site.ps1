@@ -157,7 +157,9 @@ foreach ($srcRel in $pages.Keys) {
     $outLines = foreach ($line in $lines) {
         if ($line -match '^\s{0,3}(`{3,}|~{3,})') {
             $tick = $Matches[1]
-            if (-not $fence) { $fence = $tick } elseif ($tick.StartsWith($fence.Substring(0, 3))) { $fence = $null }
+            # A fence closes only on the same character at least as long as the opener, so a ```
+            # line shown inside a ```` block stays code (CommonMark).
+            if (-not $fence) { $fence = $tick } elseif ($tick[0] -eq $fence[0] -and $tick.Length -ge $fence.Length) { $fence = $null }
             $line; continue
         }
         if ($fence) { $line; continue }

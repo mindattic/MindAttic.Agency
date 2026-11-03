@@ -181,9 +181,14 @@ function Get-Percent($agent) {
 
 function Get-WorktreeState([string]$path) {
   if (-not $path -or -not (Test-Path -LiteralPath $path)) { return '' }
+  # Under the script's ErrorActionPreference=Stop, Windows PowerShell turns any git stderr line into
+  # a terminating error even with 2>$null, so a worktree whose repo has no origin/main (or a folder
+  # that is no longer a git checkout) would abort the whole report. Let git fail quietly here.
+  $ErrorActionPreference = 'Continue'
   # status, not diff: a new file the agent hasn't staged yet is work too.
   $changed = @(git -C $path status --porcelain 2>$null | Where-Object { $_ }).Count
   $ahead = (git -C $path rev-list --count origin/main..HEAD 2>$null | Out-String).Trim()
+  if ($LASTEXITCODE -ne 0) { $ahead = '' }
   $parts = @()
   if ($ahead -and $ahead -ne '0') { $parts += "$ahead commit(s) not on main" }
   if ($changed -gt 0) { $parts += "$changed file(s) changed, uncommitted" }

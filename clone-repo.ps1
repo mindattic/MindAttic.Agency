@@ -65,7 +65,11 @@ Write-Output "tagged $fullName with: $($topics -join ', ')"
 if (-not $NoRestartLauncher) {
   $exe = 'C:\Apps\MindAttic.Launcher\MindAttic.Launcher.exe'
   $menus = @(Get-CimInstance Win32_Process -Filter "Name='MindAttic.Launcher.exe'" | Where-Object {
-    $rest = $_.CommandLine -replace '^\s*"[^"]+"\s*', '' -replace '^\s*\S+\s*', ''
+    # Strip exactly the exe token (quoted or not) in one pass. Two chained -replace calls here
+    # would strip the exe AND the first argument when the exe path was quoted, so a bare one-word
+    # subcommand with no further args (e.g. "... .exe" version) would wrongly look argument-less
+    # and get killed as if it were the menu (MAT-T77, ported from the workspace mirror).
+    $rest = $_.CommandLine -replace '^\s*(?:"[^"]+"|\S+)\s*', ''
     [string]::IsNullOrWhiteSpace($rest)
   })
 
