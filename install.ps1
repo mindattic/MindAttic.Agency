@@ -15,15 +15,15 @@ $projects = Get-ChildItem -LiteralPath $WorkspaceRoot -Directory -Force |
 $agentText = @"
 # MindAttic project agent entrypoint
 
-Read the shared protocol at `..\mindattic-agent-standard\AGENTS.md` and this project's own
+Read the shared protocol at ``..\mindattic-agent-standard\AGENTS.md`` and this project's own
 documentation. Common prompt commands are implemented by the shared runner; do not add a second
 copy under a provider-specific command folder.
 "@
 $commandText = @"
 # Portable command
 
-Invoke `..\mindattic-agent-standard\prose-agent.ps1` with the command name and `-RepoRoot (Get-Location)`.
-See `..\mindattic-agent-standard\README.md`.
+Invoke ``..\mindattic-agent-standard\prose-agent.ps1`` with the command name and ``-RepoRoot (Get-Location)``.
+See ``..\mindattic-agent-standard\README.md``.
 "@
 $globalCommandDir = Join-Path $GlobalClaudeRoot 'commands'
 $globalNames = @(Get-ChildItem $globalCommandDir -File -ErrorAction SilentlyContinue | ForEach-Object { [IO.Path]::GetFileNameWithoutExtension($_.Name) } | Where-Object { $_ -match '^[A-Za-z0-9._-]+$' })
@@ -93,7 +93,7 @@ foreach ($project in $projects) {
       @"
 # Portable command: /$name
 
-This alias is provider-neutral. Read the legacy source at `$source` for this project's intent,
+This alias is provider-neutral. Read the legacy source at ``$source`` for this project's intent,
 then execute it using the available client tools and the shared MindAttic Agent Standard.
 Do not require Claude, Codex, or a specific vendor to interpret this command.
 "@ | Set-Content -LiteralPath $path -Encoding UTF8
