@@ -96,6 +96,12 @@ foreach ($cmd in Get-ChildItem -LiteralPath (Join-Path $shared 'commands') -Filt
     Copy-Item -LiteralPath $cmd.FullName -Destination $dest -Force
 }
 
+# -- Member commands (MAT-T89): /<member> for every active org member, from shared/commands/member --
+$memberScript = Join-Path $PSScriptRoot 'shared\member-commands.ps1'
+if (Test-Path -LiteralPath $memberScript) {
+    if ($WhatIf) { & $memberScript -GlobalClaudeRoot $GlobalClaudeRoot -WhatIf } else { & $memberScript -GlobalClaudeRoot $GlobalClaudeRoot }
+}
+
 # ── Repos: drop identical copies and the settings entries that run them ─────
 $left = @()
 foreach ($repo in Get-ChildItem -LiteralPath $WorkspaceRoot -Directory) {

@@ -1,7 +1,7 @@
 ﻿{
     "standard":  "MindAttic Agent Standard",
     "protocolVersion":  "1.0",
-    "generatedAt":  "2026-11-03T04:36:19.1754986Z",
+    "generatedAt":  "2026-11-05T08:46:16.5309807Z",
     "items":  [
                   {
                       "scope":  "project",
@@ -656,6 +656,48 @@
                   },
                   {
                       "scope":  "project",
+                      "project":  "SpaceGod",
+                      "kind":  "instructions",
+                      "name":  "CLAUDE",
+                      "path":  "SpaceGod\\CLAUDE.md"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "SpaceGod.Unity.CSharp",
+                      "kind":  "hook",
+                      "name":  "instant-commands",
+                      "path":  "SpaceGod.Unity.CSharp\\.claude\\hooks\\instant-commands.ps1"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "SpaceGod.Unity.CSharp",
+                      "kind":  "hook",
+                      "name":  "quickload-on-do",
+                      "path":  "SpaceGod.Unity.CSharp\\.claude\\hooks\\quickload-on-do.ps1"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "SpaceGod.Unity.CSharp",
+                      "kind":  "instructions",
+                      "name":  "CLAUDE",
+                      "path":  "SpaceGod.Unity.CSharp\\CLAUDE.md"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "SpaceGod.Unreal.Cpp",
+                      "kind":  "instructions",
+                      "name":  "CLAUDE",
+                      "path":  "SpaceGod.Unreal.Cpp\\CLAUDE.md"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "SpaceGod.Unreal.CSharp",
+                      "kind":  "instructions",
+                      "name":  "CLAUDE",
+                      "path":  "SpaceGod.Unreal.CSharp\\CLAUDE.md"
+                  },
+                  {
+                      "scope":  "project",
                       "project":  "SyntheticExchangeTheory",
                       "kind":  "hook",
                       "name":  "quickload-on-do",
@@ -971,6 +1013,13 @@
                   },
                   {
                       "scope":  "project",
+                      "project":  "Unreal.SpaceGod",
+                      "kind":  "instructions",
+                      "name":  "CLAUDE",
+                      "path":  "Unreal.SpaceGod\\CLAUDE.md"
+                  },
+                  {
+                      "scope":  "project",
                       "project":  "Hyperspace",
                       "kind":  "hook",
                       "name":  "quickload-on-do",
@@ -1162,6 +1211,13 @@
                       "scope":  "global",
                       "project":  "global",
                       "kind":  "command",
+                      "name":  "amy",
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\amy.md"
+                  },
+                  {
+                      "scope":  "global",
+                      "project":  "global",
+                      "kind":  "command",
                       "name":  "bughunt",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\bughunt.md"
                   },
@@ -1204,6 +1260,13 @@
                       "scope":  "global",
                       "project":  "global",
                       "kind":  "command",
+                      "name":  "erin",
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\erin.md"
+                  },
+                  {
+                      "scope":  "global",
+                      "project":  "global",
+                      "kind":  "command",
                       "name":  "hey-listen",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\hey-listen.md"
                   },
@@ -1211,8 +1274,29 @@
                       "scope":  "global",
                       "project":  "global",
                       "kind":  "command",
+                      "name":  "honey",
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\honey.md"
+                  },
+                  {
+                      "scope":  "global",
+                      "project":  "global",
+                      "kind":  "command",
+                      "name":  "jordan",
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\jordan.md"
+                  },
+                  {
+                      "scope":  "global",
+                      "project":  "global",
+                      "kind":  "command",
                       "name":  "listen",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\listen.md"
+                  },
+                  {
+                      "scope":  "global",
+                      "project":  "global",
+                      "kind":  "command",
+                      "name":  "ohleo199",
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\ohleo199.md"
                   },
                   {
                       "scope":  "global",
@@ -1234,6 +1318,13 @@
                       "kind":  "command",
                       "name":  "pacing",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\pacing.md"
+                  },
+                  {
+                      "scope":  "global",
+                      "project":  "global",
+                      "kind":  "command",
+                      "name":  "pdftransferjr",
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\pdftransferjr.md"
                   },
                   {
                       "scope":  "global",
@@ -1267,6 +1358,34 @@
                       "scope":  "global",
                       "project":  "global",
                       "kind":  "command",
+                      "name":  "research",
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\research.md"
+                  },
+                  {
+                      "scope":  "global",
+                      "project":  "global",
+                      "kind":  "command",
+                      "name":  "ryan",
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\ryan.md"
+                  },
+                  {
+                      "scope":  "global",
+                      "project":  "global",
+                      "kind":  "command",
+                      "name":  "ryandebraal",
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\ryandebraal.md"
+                  },
+                  {
+                      "scope":  "global",
+                      "project":  "global",
+                      "kind":  "command",
+                      "name":  "shampoo1232",
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\shampoo1232.md"
+                  },
+                  {
+                      "scope":  "global",
+                      "project":  "global",
+                      "kind":  "command",
                       "name":  "test",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\test.md"
                   },
@@ -1283,6 +1402,13 @@
                       "kind":  "command",
                       "name":  "unstuck",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\unstuck.md"
+                  },
+                  {
+                      "scope":  "global",
+                      "project":  "global",
+                      "kind":  "command",
+                      "name":  "waffle",
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\waffle.md"
                   },
                   {
                       "scope":  "global",
