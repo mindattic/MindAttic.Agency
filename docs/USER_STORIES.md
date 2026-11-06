@@ -114,6 +114,6 @@ _Nothing recorded yet._
 | MAT-T91 | 2026-11-05 | chore | open | Create new repo Mods.Mech5Mercs.CoopPartner (gh repo create, clone-repo.ps1, scaffold) | — |
 | MAT-T92 | 2026-11-05 | chore | closed | Sync AGENTS.md: the login hard-cutoff line now says 96% of the 5-hour window (lowered from 98%, M.ORCH-T1462) since the orchestrator can't predict an individual tool call's size before it runs | — |
 | MAT-T93 | 2026-11-06 | feature | open | CLI-agnostic capability framework: give Codex/Antigravity/Kimi full parity with Claude's abilities | — |
-| MAT-T94 | 2026-11-06 | chore | open | Bring pace-gate.py/context-gate.py/rl-check.py under version control and wire them identically across Claude/Codex/Kimi/agy | — |
+| MAT-T94 | 2026-11-06 | chore | closed | Bring pace-gate.py/context-gate.py/rl-check.py under version control and wire them identically across Claude/Codex/Kimi/agy | — |
 | MAT-T95 | 2026-11-06 | feature | closed | Single-source ability catalog + per-CLI renderer: port Claude's 32 slash commands/skills so Codex, Kimi, and agy get them too | 944b26f |
 | MAT-T96 | 2026-11-06 | feature | closed | Bootstrap Google Antigravity (agy) config and wire it into the shared standard (hooks, AGENTS.md discovery, abilities) | — |
