@@ -36,9 +36,10 @@ ask to reach {{NAME}} ({{EMAIL}}).
      nothing of yours is left, SendMessage <name>: 'pair <Repo>: {{EMAIL}}'s share is done'."
      If a running peer session is plainly {{NAME}}'s in <Repo>, SendMessage it that text; otherwise run
      `$p = (Get-Content -Raw <file>).Replace('"', "'"); orchestrator org start <Repo> {{EMAIL}} --prompt $p`.
-  4. Start your own share here: invoke /allocate -repo=<Repo> through the Skill tool (the user's
-     `pair` asked for it), and follow the same working-together rules as the brief, with `<you>` and
-     {{EMAIL}} swapped - rebalance the same way when yours runs dry.
+  4. Your own share starts when the user types `/allocate -repo=<Repo>` here: the Orchestrator's gate
+     only lets the user switch /allocate on in this CLI (a Skill call from `pair` is refused), so ask
+     them to, in step 5's message. Once it runs, follow the same working-together rules as the brief,
+     with `<you>` and {{EMAIL}} swapped - rebalance the same way when yours runs dry.
   5. Tell the user in a few lines: how many tickets each of you got (divvy's share lines), what it
      left alone, and that {{NAME}}'s CLI was started or messaged. Proposed (unapproved) tickets are
      split too but /allocate won't start them until approved (`tickets ticket approve`); say how many
