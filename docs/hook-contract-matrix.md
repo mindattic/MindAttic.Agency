@@ -686,3 +686,80 @@ placeholder - the model infers the argument from the user's own message instead.
 - `~/.agy` and `~/.antigravity` as config locations - neither exists; the real global root is
   `~/.gemini/config/`.
 - Double-quoted absolute paths in a `hooks.json` command string (see GOTCHA above) - unquoted only.
+
+## Generic wakeup scheduling (MAT-T103)
+
+Claude Code's `ScheduleWakeup` tool had been recorded above (and in AGENTS.md's cross-CLI
+capability framework section) as permanently Claude-only, on the theory that "resume this CLI's
+work later without the user typing continue" needs a Claude-SDK mechanism with no equivalent
+elsewhere. MAT-T103 re-examined that: the actual job is just "re-invoke this CLI non-interactively
+with a prompt at a future time," and Windows' own Task Scheduler (`schtasks`) can do exactly that
+for any CLI, because every CLI this workspace runs ships a confirmed non-interactive mode -
+**TRUE-EQUIVALENT-BUILT**, not merely a paper equivalent:
+
+- `claude -p "<prompt>"` - confirmed via `claude --help` (`-p`/`--print` for non-interactive
+  output); cwd is read directly, no separate `-C`/`--cwd` flag.
+- `codex exec -C "<dir>" "<prompt>"` - confirmed via `codex exec --help` (`-C, --cd <DIR>`: "Tell
+  the agent to use the specified directory as its working root").
+- `kimi -p "<prompt>"` - confirmed via `kimi --help` (`-p, --prompt <prompt>`: "Run one prompt
+  non-interactively and print the response"); no `-C`/`--cwd` flag, relies on the process cwd.
+- `agy -p "<prompt>"` - confirmed via `agy --help` (`-p`/`--print`: "Run a single prompt
+  non-interactively and print the response"); no `-C`/`--cwd` flag either, same cwd reliance.
+
+**What was built**: `mindattic-agent-standard/schedule-wakeup.ps1`, plus its ability wrapper
+`shared/abilities/schedule-wakeup.md` (`claude-only: false` - deliberately, since portability is
+the entire point). Given a CLI name, a working directory, a prompt, and a delay (`-DelaySeconds`/
+`-DelayMinutes`) or an absolute `-At` time, it:
+
+1. Generates a small, self-contained wrapper `.ps1` (stored under
+   `%LOCALAPPDATA%\MindAttic\ScheduledWakeups\`, not inside any repo) that `cd`s to the working
+   directory, decodes a Base64-embedded copy of the prompt (sidesteps every `schtasks`/`cmd`
+   quoting limit - the prompt can contain quotes or newlines with no escaping problem), invokes the
+   target CLI's own non-interactive mode above, pipes all output through one explicit
+   `-Encoding utf8` sink to a log file, then deletes its own scheduled task
+   (`schtasks /delete /tn ... /f`) and finally itself - nothing lingers but the log.
+2. Registers that wrapper via `schtasks /create ... /sc once`.
+3. Defaults the log location to a `wakeup-logs` folder created as a **sibling** of the working
+   directory (never inside a git-tracked checkout), and supports `-EnvOverrides 'KEY=VALUE'` for
+   setting process env vars before the CLI runs (used below to point Codex at an isolated
+   `CODEX_HOME`) and `-Cancel <TaskName>` to tear down a wakeup that's no longer needed.
+
+**Confirmed end-to-end against a real CLI (2026-11-06)**, using the same isolated-`CODEX_HOME`
+safe-testing convention MAT-T94/95/98/100 already established for Codex (a scratch `CODEX_HOME`
+holding only a copy of `auth.json`, so the real, concurrently-used `~/.codex/hooks.json`/config was
+never touched):
+
+- Recorded the 8 pre-existing scheduled tasks on this machine (`\MindAttic\Scheduler\*` and
+  `\MindAttic\UnstuckTaskbar\Logon`) before any test, as a baseline.
+- Scheduled a one-shot wakeup (`-Cli codex`, a scratch working directory, `-EnvOverrides
+  'CODEX_HOME=...'`, `-ExtraCliArgs '--dangerously-bypass-approvals-and-sandbox'`, delays of
+  70-120 seconds across three runs) asking Codex to reply with an exact marker string.
+- Each run fired on schedule, ran `codex exec` in the correct working directory under the scratch
+  `CODEX_HOME` (a fresh session id each time, confirming it never touched the real login's live
+  session), and the log showed Codex's own reply containing exactly the requested marker text and
+  `exit code: 0`.
+- The scheduled task and the wrapper script were both gone immediately after each run (re-querying
+  `schtasks /query /tn <name>` returned "cannot find the file specified"; the wrapper directory was
+  empty) - the self-delete worked both times, with nothing left behind but the log.
+- Re-queried all scheduled tasks after testing: exactly the same 8 pre-existing tasks as the
+  baseline, confirming no test task was left behind and no pre-existing task was disturbed.
+- One real bug found and fixed mid-test: the first run's log file was unreadable garbage (embedded
+  NULs) because the wrapper mixed `Add-Content`'s Windows-PowerShell-5.1 default ANSI encoding with
+  the native `*>>` redirection operator's own default encoding for the CLI's captured output, in the
+  same file. Fixed by routing every write through one explicit `-Encoding utf8` sink (`Add-Content
+  -Encoding utf8` for the header lines, `... | Out-File -Append -Encoding utf8` for the CLI's own
+  output and the final `schtasks /delete`); re-tested and confirmed the log reads as clean UTF-8
+  throughout.
+
+**Limitation (real, not a gap in the build)**: this is a `schtasks`-level constraint, not something
+a different implementation could route around - the machine must be on and the triggering user's
+Windows session logged in at fire time. Fine for same-session pacing waits and deferred follow-ups
+within a normal working day; not a way to wake a fully powered-off machine.
+
+**Not yet done**: `render-abilities.ps1` was not re-run as part of this ticket, so
+`schedule-wakeup` is not yet mirrored into Codex's/Kimi's/agy's own skill directories the way other
+non-claude-only abilities are - it exists as a documented `shared/abilities/*.md` source and a
+working script today, with the mechanical render-and-install pass left for a follow-up (or the next
+routine `render-abilities.ps1` run) to avoid touching the live `$CODEX_HOME`/`$env:LOCALAPPDATA`
+skill directories and the real Claude `commands` folder while MAT-T103's other two items were being
+worked concurrently in this same checkout.
