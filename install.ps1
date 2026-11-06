@@ -118,3 +118,7 @@ It must work without requiring a Claude or OpenAI-specific runtime.
 
 # One shared statusline and quickload hook instead of a copy per repo.
 & (Join-Path $shared 'share-scripts.ps1') -WorkspaceRoot $WorkspaceRoot -GlobalClaudeRoot $GlobalClaudeRoot -WhatIf:$WhatIf
+
+# One shared pace-gate/context-gate/rl-check hook set, deployed to Claude, Codex and Kimi alike
+# instead of loose per-machine files with no backup (MAT-T94).
+& (Join-Path $PSScriptRoot 'install-hooks.ps1') -WorkspaceRoot $WorkspaceRoot -GlobalClaudeRoot $GlobalClaudeRoot -WhatIf:$WhatIf

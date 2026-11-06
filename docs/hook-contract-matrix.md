@@ -2,9 +2,146 @@
 
 Per-CLI confirmed/unverified behavior for the shared lifecycle hooks
 (`shared/hooks/pace-gate.py`, `shared/hooks/context-gate.py`, `shared/hooks/rl-check.py`), one
-section per CLI. **Claude, Codex and Kimi rows are owned by MAT-T94** (a sibling of this ticket) and
-had not landed yet when the agy row below was added by MAT-T96 - merge their rows in above/below
-this one rather than overwriting it, and vice versa.
+section per CLI. Claude, Codex and Kimi rows below were filled in by MAT-T94; the agy section
+further down is MAT-T96's and is left as-is.
+
+## Summary table
+
+One row per hook event, one column per CLI. `CONFIRMED-WORKING` means the event was observed
+firing with the real payload shape (and, for `PreToolUse`, that a `deny` response actually blocked
+the tool call); `UNVERIFIED` means no empirical test exercised it either way; `CONFIRMED-NOT-SUPPORTED`
+means a real location/shape was ruled out. See each CLI's own section below for how every cell was
+confirmed and its caveats - this table is a locator, not the full story.
+
+| Hook event | Claude | Codex | Kimi | agy |
+|---|---|---|---|---|
+| PreToolUse | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED |
+| PostToolUse | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED |
+| Stop | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | CONFIRMED-WORKING |
+| SessionStart | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED |
+| UserPromptSubmit | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED |
+| SubagentStart | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED | UNVERIFIED |
+| SubagentStop | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED | UNVERIFIED |
+| Notification | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED | UNVERIFIED |
+
+## Claude Code
+
+This is the native/reference hook contract everything else is compared against
+(`hookSpecificOutput.permissionDecision` for `PreToolUse` deny, `hook_event_name`/`session_id`/
+`tool_name`/`tool_input` JSON on stdin). `~/.claude/settings.json` already wired all eight events
+above before MAT-T94 (`UserPromptSubmit`, `PreToolUse` x2 matchers, `PostToolUse`, `Stop`,
+`SubagentStart`, `SubagentStop`, `SessionStart`, `Notification`), all pointed at the loose,
+untracked files this ticket moved under version control.
+
+**CONFIRMED-WORKING** (observed directly, 2026-11-06):
+
+- `shared/hooks/{context-gate.py,pace-gate.py,rl-check.py,log-user-input.ps1}` are byte-identical
+  copies of the live loose files (verified with `cmp` before any wiring changed) and all parse
+  cleanly (`python -m py_compile` for the three `.py` files; a PowerShell AST parse for the `.ps1`).
+- None of the three Python scripts resolve any path relative to their own file location
+  (`Path(__file__)` does not appear in any of them) - every stateful path is `Path.home() /
+  ".claude" / ...`, so moving the script file itself to `shared/hooks/` changes nothing about its
+  runtime behavior.
+- `install-hooks.ps1` repointed all 11 hook command strings in the live `~/.claude/settings.json`
+  (8 `context-gate.py` + 1 `pace-gate.py` + 1 `rl-check.py` + 1 `log-user-input.ps1`) from the old
+  loose-file path to `D:/Projects/MindAttic/mindattic-agent-standard/shared/hooks/...` - a pure
+  substring swap, confirmed by diffing before/after: every other key (`matcher`, `timeout`, the
+  `codex` argv on the Codex-side Stop hook, etc.) is untouched.
+- The rewritten `settings.json` is valid JSON (`json.load` succeeded) and the session's own live
+  hooks kept working immediately afterward: a plain `ls` via the Bash tool, run right after
+  `install-hooks.ps1` repointed the live settings, succeeded normally (`PreToolUse`/`PostToolUse`
+  fired with no error, no behavior change) - this is the explicit "did I just break my own session"
+  check MAT-T94 required before declaring done.
+- `pace-gate.py` also still runs cleanly invoked directly from its new path with a synthetic
+  `PreToolUse` stdin payload (`exit 0`, no output = allow, same as before the move).
+
+No `UNVERIFIED` or `CONFIRMED-NOT-SUPPORTED` entries for Claude - this is the reference
+implementation and MAT-T94's own hard constraint was "do not change Claude's own observed
+behavior," which the check above confirms held.
+
+## Codex
+
+Confirmed empirically 2026-11-06 by running `codex exec` with an **isolated `CODEX_HOME`**
+(a throwaway scratch directory with just a copy of the real `auth.json`, so the real
+`~/.codex/hooks.json` - live and in use by concurrently-running `codex.exe` processes on this
+machine at the time - was never touched for the test itself). `--dangerously-bypass-hook-trust`
+was needed for the throwaway hooks.json to run at all (Codex has its own hook-trust gate, separate
+from whether the hook's response is honored); `--dangerously-bypass-approvals-and-sandbox` removed
+the interactive shell-approval step so the run could be fully non-interactive.
+
+**CONFIRMED-WORKING:**
+
+- `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse` and `Stop` all fired during a
+  single `codex exec "Run the shell command: echo hello-mat-t94-test"` run, each carrying Claude's
+  own field names verbatim (`session_id`, `hook_event_name`, `tool_name`, `tool_input`,
+  `tool_response`, `last_assistant_message`, ...) - confirmed by wiring a throwaway marker hook to
+  all eight events at once and inspecting exactly which ones wrote a log line with what payload.
+- `PreToolUse`'s `hookSpecificOutput.permissionDecision = "deny"` **genuinely blocks the tool call**
+  - the single biggest open question in this ticket. A throwaway hook that unconditionally denied
+  every `PreToolUse` call was wired in the isolated `CODEX_HOME`, then `codex exec` was asked to
+  run a real shell command; Codex's own log surfaced `error=Command blocked by PreToolUse hook:
+  <permissionDecisionReason>` and the agent turn reported the call as blocked back to the model -
+  not a silent ignore, not a crash, a real block. The throwaway hook also wrote an
+  "invoked" marker to disk as a second, independent confirmation it actually ran.
+- The live `~/.codex/hooks.json` (the real, two-event wiring: `PreToolUse -> pace-gate.py`,
+  `Stop -> context-gate.py codex`) was repointed by `install-hooks.ps1` to the shared path and
+  re-validated as parseable JSON (`json.load`) afterward; the `codex` argv on the `Stop` hook
+  command was preserved untouched by the path substring swap.
+
+**UNVERIFIED:**
+
+- `SubagentStart`/`SubagentStop` - `codex exec` ran a single flat agent turn; nothing in this test
+  exercised (or ruled out) a subagent-equivalent concept in Codex.
+- `Notification` - not triggered by the exercised flow, since
+  `--dangerously-bypass-approvals-and-sandbox` removed whatever normally would have produced one
+  (e.g. an approval prompt). Codex may or may not support this event at all; not determined.
+
+## Kimi
+
+**Attempted but inconclusive** - the empirical `PreToolUse`-deny test could not be completed this
+session, for reasons unrelated to the hook wiring itself (see below). Document honestly rather than
+guessing: this is UNVERIFIED, not CONFIRMED either way.
+
+What was confirmed:
+
+- `~/.kimi-code/config.toml`'s `[[hooks]]` block (`event = "PreToolUse"`, `command = 'python "..."'`,
+  `timeout = 330`) is the only hook Kimi has wired at all today - no other event has an entry.
+- `install-hooks.ps1` repointed that one `command` string's path (a plain substring swap on the raw
+  TOML text, since the value is just a quoted string) to the shared
+  `D:/Projects/MindAttic/mindattic-agent-standard/shared/hooks/pace-gate.py` path; the result was
+  re-validated as parseable TOML (Python `tomllib.load`) and `kimi doctor config` reported it valid.
+
+What blocked the deny test: no Kimi process was running on this machine, so (unlike Codex) the
+live `~/.kimi-code/config.toml` itself was edited directly for the test (backed up first,
+byte-verified identical, restored after, byte-verified identical again - confirmed clean with
+`cmp` before this doc was written). The `[[hooks]]` `command` was swapped to a throwaway
+unconditional-deny script and `kimi -p "..."` (non-interactive prompt mode) was run repeatedly to
+try to trigger a tool call:
+
+- The default model (`kimi-code/k3`, provider `managed:kimi-code`) fails immediately in print mode
+  with `auth.login_required: OAuth provider "managed:kimi-code" requires login before it can be
+  used` - its OAuth session isn't available to `-p` mode on this machine.
+- The only other configured model (`moonshot-cn/kimi-k2.7-code`, a direct API key, no OAuth) was
+  tried instead (`kimi -p ... -m moonshot-cn/kimi-k2.7-code`). Every attempt stalled for minutes
+  with zero output, including a prompt that needed no tool call at all ("just reply pong"), then
+  eventually surfaced `error: failed to run prompt: provider.rate_limit: 429 ... account ... is
+  suspended due to insufficient balance, please recharge your account` - a billing problem on that
+  API key, not a hook problem. Confirmed unrelated to the hook edit specifically: the identical
+  stall/429 reproduced after reverting `config.toml` back to its pre-test (post-`install-hooks.ps1`)
+  state, i.e. it happens with or without the throwaway deny hook in place.
+- No tool call was ever reached in any Kimi test run (the throwaway hook's own "invoked" marker
+  file, which the Codex test proved the same technique reliably catches, never appeared), so there
+  is literally no data on whether Kimi's `PreToolUse` hook runner honors `deny` - not "it doesn't
+  work," just never exercised.
+
+**Follow-up needed** (left for whoever next has a funded Kimi model or a machine where the
+`managed:kimi-code` OAuth session is valid in print mode): rerun the same throwaway-deny-hook
+technique used for Codex (see that section) against a working `kimi -p` invocation, watching for
+the marker file plus whether the shell command Kimi was asked to run actually executed or was
+blocked. All other Kimi events (`PostToolUse`, `SessionStart`, `UserPromptSubmit`,
+`SubagentStart`/`Stop`, `Notification`) are UNVERIFIED too, for the same reason, and are not even
+wired in `config.toml` today - whether Kimi's hook runner supports them is a separate open
+question from whether it honors `deny`.
 
 ## agy (Google Antigravity CLI)
 
