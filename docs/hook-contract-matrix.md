@@ -6,8 +6,11 @@ section per CLI. Claude, Codex and Kimi rows below were filled in by MAT-T94; th
 started by MAT-T96 and extended by MAT-T99 (deny enforcement, SessionStart/PreInvocation/
 PostInvocation, project-local discovery); the Codex section's `SubagentStart`/`SubagentStop`/
 `Notification` rows were filled in by MAT-T100. MAT-T98 separately settled whether a rendered
-skill's `$ARGUMENTS` placeholder is substituted by agy (see the agy section below) - that's a
-skill-authoring question, not one of the lifecycle hooks this table tracks, so it isn't a table row.
+skill's `$ARGUMENTS` placeholder is substituted by agy (live-tested: it is not) and by Kimi
+(source-confirmed: it genuinely is - see the Kimi section below, which also upgrades Kimi's whole
+hook-event row from UNVERIFIED using the same source-reading technique) - that's a skill-authoring
+question, not one of the lifecycle hooks this table tracks, so it isn't its own table row, but it's
+called out in the summary table below too since the two CLIs turned out to behave oppositely.
 
 ## Summary table
 
@@ -19,16 +22,21 @@ confirmed and its caveats - this table is a locator, not the full story.
 
 | Hook event | Claude | Codex | Kimi | agy |
 |---|---|---|---|---|
-| PreToolUse (deny actually blocks) | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | CONFIRMED-WORKING |
-| PostToolUse | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED |
-| Stop | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | CONFIRMED-WORKING |
-| SessionStart | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | CONFIRMED-WORKING |
+| PreToolUse (deny actually blocks) | CONFIRMED-WORKING | CONFIRMED-WORKING | CONFIRMED-WORKING (source)¹ | CONFIRMED-WORKING |
+| PostToolUse | CONFIRMED-WORKING | CONFIRMED-WORKING | CONFIRMED-WORKING (source)¹ | UNVERIFIED |
+| Stop | CONFIRMED-WORKING | CONFIRMED-WORKING | CONFIRMED-WORKING (source)¹ | CONFIRMED-WORKING |
+| SessionStart | CONFIRMED-WORKING | CONFIRMED-WORKING | CONFIRMED-WORKING (source)¹ | CONFIRMED-WORKING |
 | PreInvocation / PostInvocation (agy-only events) | n/a | n/a | n/a | CONFIRMED-WORKING |
 | Project-local discovery (`.agents/` for agy) | n/a | n/a | n/a | CONFIRMED-WORKING |
-| UserPromptSubmit | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED |
-| SubagentStart | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED |
-| SubagentStop | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED |
-| Notification | CONFIRMED-WORKING | CONFIRMED-NOT-SUPPORTED | UNVERIFIED | UNVERIFIED |
+| UserPromptSubmit | CONFIRMED-WORKING | CONFIRMED-WORKING | CONFIRMED-WORKING (source)¹ | UNVERIFIED |
+| SubagentStart | CONFIRMED-WORKING | CONFIRMED-WORKING | CONFIRMED-WORKING (source)¹ | UNVERIFIED |
+| SubagentStop | CONFIRMED-WORKING | CONFIRMED-WORKING | CONFIRMED-WORKING (source)¹ | UNVERIFIED |
+| Notification | CONFIRMED-WORKING | CONFIRMED-NOT-SUPPORTED | CONFIRMED-WORKING (source)¹ | UNVERIFIED |
+| `$ARGUMENTS` skill-body substitution | CONFIRMED-WORKING (native slash commands) | n/a (no custom-prompts surface - see Codex section) | CONFIRMED-WORKING (source)¹ | CONFIRMED-NOT-SUPPORTED (live-tested, MAT-T98) |
+
+¹ Kimi's row is **source-confirmed** (MAT-T98, 2026-11-06), not live-tested against a running tool
+call - see the Kimi section below for exactly what "source-confirmed" means here and why it is
+still honestly distinguished from Claude/Codex/agy's live-observed rows above.
 
 ## Claude Code
 
@@ -151,6 +159,199 @@ exercise it, left as a follow-up rather than guessed at.
 
 ## Kimi
 
+**UPDATE (MAT-T98, 2026-11-06): resolved from Kimi's own source, after the live-test path below
+remained blocked.** No funded/logged-in Kimi account became available this round either, so instead
+of repeating the live-call attempt, this round read Kimi Code's actual bundled JavaScript straight
+out of its own executable - the same strategy MAT-T100 used against `codex.exe` (extracting its
+`HookEventName` enum and UI strings) rather than guessing from a live call.
+
+**Methodology**: `kimi.exe` (found at `C:\Users\<user>\.kimi-code\bin\kimi.exe`, confirmed via
+`where kimi`) is a ~124 MB PE32+ Windows executable - a Node.js "single executable application"
+bundle, not a native Rust/Go binary (no `strings` tool was available, so a small Python script read
+the file in 4 MB chunks and pulled out every printable-ASCII run of 6+ characters, a cheap
+poor-man's `strings`). The embedded JS is bundled (esbuild-style, module paths rewritten to
+`//#region ../../packages/agent-core/...` and `.../agent-core-v2/...` comments - two parallel
+near-identical copies of the same framework, apparently an in-progress "v2" migration) but **not
+aggressively minified**: real statement-per-line formatting, real (if shortened, `$1`/`$2`-suffixed)
+variable names, and original comments survive, so entire function bodies could be read directly by
+anchoring on a known string (e.g. `"async runPreToolUse(ctx) {"`) and dumping the surrounding bytes,
+exactly like reading a lightly obfuscated but otherwise intact source file.
+
+### `PreToolUse` deny enforcement - CONFIRMED-WORKING FROM SOURCE
+
+Kimi's hook contract is, in the literal field-name sense, a verbatim copy of Claude Code's own -
+down to the exact schema names:
+
+```js
+// packages/agent-core/src/session/hooks/runner.ts (and the agent-core-v2 mirror, byte-identical
+// apart from `$1`-suffixed names from the duplicate bundle copy)
+HookSpecificOutputSchema = preprocess((value) => isRecord(value) ? value : void 0, looseObject({
+    message: OptionalStringSchema,
+    permissionDecision: unknown().optional(),
+    permissionDecisionReason: unknown().optional()
+}).optional());
+HookJsonOutputSchema = looseObject({
+    message: OptionalStringSchema,
+    hookSpecificOutput: HookSpecificOutputSchema
+});
+```
+
+The hook child process is spawned with `child_process.spawn(command, ...)`, fed the JSON input on
+stdin, and its exit code/stdout are turned into a result by `resultFromExitCode(exitCode, stdout,
+stderr)`:
+
+```js
+function resultFromExitCode(exitCode, stdout, stderr) {
+    if (exitCode === 2) {
+        const message = stderr.trim();
+        return { action: "block", message, reason: message, stdout, stderr, exitCode };
+    }
+    const structured = exitCode === 0 ? structuredOutput(stdout) : void 0;
+    if (structured?.action === "block") return { action: "block", message: ..., reason: ..., ... };
+    ...
+}
+```
+
+i.e. Kimi honors **both** of Claude's own documented hook-output conventions verbatim: a plain
+`exit 2` with the reason on stderr (the "simple" protocol), or `exit 0` plus JSON on stdout shaped
+like `{"hookSpecificOutput": {"permissionDecision": "deny", "permissionDecisionReason": "..."}}`
+(the "advanced" protocol) - the JSON-parsing helper does exactly
+`if (hookSpecificOutput?.permissionDecision !== "deny") return result; return { action: "block",
+reason: hookSpecificOutput.permissionDecisionReason, ... };`.
+
+That `{action: "block", reason}` result is not merely logged - it genuinely short-circuits the real
+tool call. The tool-execution path is a middleware chain (`onBeforeExecuteTool.register(name, async
+(ctx, next) => {...})`) and the hook's wiring is:
+
+```js
+registerToolHooks(toolExecutor) {
+    this._register(toolExecutor.hooks.onBeforeExecuteTool.register("externalHooks", async (ctx, next) => {
+        const reason = await this.runPreToolUse(ctx);
+        if (reason !== void 0) {
+            ctx.decision = { block: true, reason };
+            return;              // <-- next() is never called - the tool body never runs
+        }
+        await next();            // <-- only reached when no hook blocked
+    }));
+    ...
+}
+```
+
+`runPreToolUse(ctx)` itself is `return block?.reason;` from `this.runner.triggerBlock("PreToolUse",
+{...})`, so a non-`deny` result (or no hooks matching at all) yields `reason === undefined` and
+`next()` runs the real tool; a `deny` result yields a truthy `reason`, `ctx.decision = {block:true,
+reason}` is set, and `next()` - the actual tool execution continuation - is **never invoked**. This
+is as close to a live confirmation as static analysis gets: the control-flow structure itself proves
+a `deny` result prevents the real tool from ever executing, it isn't just surfaced as a warning.
+
+`~/.kimi-code/config.toml`'s `[[hooks]]` TOML block (the thing `install-hooks.ps1` already repoints
+at the shared `pace-gate.py` path - see "What was confirmed" below) feeds this exact mechanism: it's
+read via `this.config.get(HOOKS_SECTION)`, merged with any plugin-contributed hooks, and indexed by
+event name (`indexHooks`) into the same `byEvent` map `triggerBlock`/`trigger` read from.
+
+### Full hook-event enum and other events - CONFIRMED-WORKING FROM SOURCE
+
+Kimi's own exhaustive event-name list (`packages/agent-core/src/session/hooks/types.ts`,
+`HOOK_EVENT_TYPES`) is **larger** than Claude's or Codex's:
+
+```js
+HOOK_EVENT_TYPES = [
+    "PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionRequest", "PermissionResult",
+    "UserPromptSubmit", "Stop", "StopFailure", "Interrupt", "SessionStart", "SessionEnd",
+    "SubagentStart", "SubagentStop", "PreCompact", "PostCompact", "Notification"
+];
+```
+
+A real `.trigger(...)`/`.fireAndForgetTrigger(...)` call site was found for every one of these
+except `Interrupt` and `StopFailure` (zero occurrences of either as a literal event-name argument -
+genuinely `UNVERIFIED`, not assumed working just because they're in the enum):
+
+- `PostToolUse`/`PostToolUseFailure`: `notifyPostToolUse(ctx)` fires one or the other (fire-and-forget,
+  non-blocking, matching Claude's own convention for this event) right after `onDidExecuteTool`.
+- `Stop`: `this.runner.triggerBlock("Stop", {...})` inside `runStop(ctx)`, wired into the agent's
+  step-loop finish handler exactly like `PreToolUse` - a `Stop` hook can likewise block/continue the
+  turn (`this.stopHookContinuationUsed = true` when it does).
+- `SessionStart`/`SessionEnd`: `triggerSessionStart(source)`/`triggerSessionEnd(reason)`, each a thin
+  `this.hookEngine.trigger(...)` call.
+- `UserPromptSubmit`: `runPromptSubmitHook(ctx)` -> `this.runner.trigger("UserPromptSubmit", {...})`;
+  a block result sets `ctx.block = true` before the prompt is submitted to the model.
+- `SubagentStart`/`SubagentStop`: `triggerSubagentStart`/`triggerSubagentStop`, firing around Kimi's
+  own subagent spawn/stop lifecycle (`emitSubagentStarted`, `fireAndForgetTrigger("SubagentStop", ...)`).
+- `PreCompact`/`PostCompact`: `triggerPreCompactHook`/`triggerPostCompactHook`, wired into
+  `registerFullCompactionHooks`'s `onWillCompact` middleware.
+- `PermissionRequest`/`PermissionResult`: fired around the interactive tool-approval flow
+  (`registerPermissionHooks`, subscribing to `permission.approval.requested`/`.resolved` events).
+- **`Notification`**: unlike Codex (`CONFIRMED-NOT-SUPPORTED` - no such variant exists in its enum
+  at all), Kimi's `Notification` is real and does fire: `fireNotificationHook(notification)` calls
+  `this.agent.hooks?.fireAndForgetTrigger("Notification", {matcherValue: notification.type,
+  inputData: {sink: "context", notificationType, title, body, severity, ...}})`, and a separate
+  `notifyTaskNotification(ctx)` also fires `"Notification"` for background-task events. Classified
+  `CONFIRMED-WORKING (source)`, not "exists in the enum so probably works" - an actual call site with
+  a real payload shape was found, the same bar used for the other confirmed events above.
+
+None of this is a substitute for an actual live `kimi -p` run with a real tool call reaching the
+hook - no process was spawned, no JSON actually crossed a real stdin/stdout pipe this round. It is,
+however, a strictly stronger form of evidence than the inconclusive live attempt below: that attempt
+never got far enough to observe *any* behavior; this one reads the exact logic that would execute if
+it had. The summary table marks every Kimi row above `(source)` rather than bare `CONFIRMED-WORKING`
+for this honest reason.
+
+### $ARGUMENTS skill-body substitution - CONFIRMED-WORKING FROM SOURCE (NOT a category error)
+
+The ticket's own working hypothesis going in was that `$ARGUMENTS` might be "a Claude-slash-command-
+specific concept with no Kimi equivalent." Source reading shows the opposite: Kimi deliberately
+re-implements the same substitution convention.
+
+```js
+// packages/agent-core-v2/src/app/skillCatalog/registry.ts (agent-core/src/skill mirrors this)
+function expandSkillParameters(body, rawArgs, context) {
+    const tokens = tokenizeArgs(rawArgs);          // whitespace-split, quote-aware (e.g. -m "fix bug")
+    ...
+    content = content.replaceAll(/\$ARGUMENTS\[(\d+)\]/g, (_m, indexText) => tokens[Number(indexText)] ?? "");
+    ...
+    return content.replaceAll("$ARGUMENTS", escapeXmlTags(rawArgs));
+}
+// renderSkillPrompt(skill, rawArgs) { return expandSkillParameters(skill.content, rawArgs, {...}); }
+```
+
+and, from the same bundle's own in-code comment: `* Placeholder syntax ($ARGUMENTS, $0, $name, etc.)
+is modelled after common conventions` - an explicit acknowledgment this is deliberately
+Claude-slash-command-compatible, not an independent or absent mechanism. A companion function,
+`skillArgumentNames(metadata)`, reads an `arguments:` frontmatter field to support named `$NAME`
+placeholders too, and a trailing fallback (`if (!body.includes("$ARGUMENTS") && args.length > 0)
+return `${replaced}\n\nARGUMENTS: ${args}``) appends the raw args as a visible line when a skill body
+has no placeholder at all, so argument text is never silently dropped either way.
+
+`rawArgs` is populated from two paths, both of which land in this same function:
+- An explicit `/name args` invocation (Kimi supports slash-command-style dispatch, with its own
+  `argumentHint`/`argument-hint` concept mirroring Claude's - found alongside a generic editor
+  `setArgumentHints` call).
+- The model's own choice, when it decides on its own to invoke a skill: the model-facing tool schema
+  for doing so carries `args: string().optional().describe("... It is split on whitespace (quotes
+  group a token) and expanded into the skill's placeholders ($NAME, $1, $ARGUMENTS) ... Omit it only
+  when there is nothing to pass.")` - i.e. Kimi explicitly instructs the model to supply the relevant
+  argument text itself when invoking a skill that wasn't triggered by a literal slash command.
+
+Both paths substitute for real before the model ever reads the rendered body. Omitting `args`
+(nothing to pass) substitutes an empty string rather than leaving `$ARGUMENTS` literal - e.g.
+`renderSkillPrompt(skill, "")` is the exact call used for an automatically-triggered
+`plugin_session_start` skill reminder.
+
+**Consequence for this repo**: `render-abilities.ps1`'s Kimi branch (which had, earlier in this same
+round, been changed to apply agy's "rewrite `$ARGUMENTS` to plain-English guidance" treatment to Kimi
+too, "by analogy" with agy - see the agy section's own `$ARGUMENTS` write-up) was corrected back:
+Kimi's branch now renders `$ARGUMENTS` **literally**, unchanged, exactly like the Claude branch does,
+because Kimi's own harness will substitute it for real. The analogy to agy was the wrong call - the
+two CLIs' skill systems look identical on the surface (same `SKILL.md` directory shape, same
+model-activation idea) but Kimi added a real slash-command-style argument-substitution layer on top
+that agy does not have. Live `~/.kimi-code/skills/*/SKILL.md` files were re-rendered with the fix
+applied (confirmed by spot-checking `bughunt/SKILL.md`: it now contains literal `` `$ARGUMENTS` ``
+again, not the "the rest of the user's own message" rewrite).
+
+---
+
+### Original live-test attempt (MAT-T94, kept for the record)
+
 **Attempted but inconclusive** - the empirical `PreToolUse`-deny test could not be completed this
 session, for reasons unrelated to the hook wiring itself (see below). Document honestly rather than
 guessing: this is UNVERIFIED, not CONFIRMED either way.
@@ -187,14 +388,17 @@ try to trigger a tool call:
   is literally no data on whether Kimi's `PreToolUse` hook runner honors `deny` - not "it doesn't
   work," just never exercised.
 
-**Follow-up needed** (left for whoever next has a funded Kimi model or a machine where the
-`managed:kimi-code` OAuth session is valid in print mode): rerun the same throwaway-deny-hook
+**Follow-up needed at the time** (left for whoever next has a funded Kimi model or a machine where
+the `managed:kimi-code` OAuth session is valid in print mode): rerun the same throwaway-deny-hook
 technique used for Codex (see that section) against a working `kimi -p` invocation, watching for
 the marker file plus whether the shell command Kimi was asked to run actually executed or was
 blocked. All other Kimi events (`PostToolUse`, `SessionStart`, `UserPromptSubmit`,
-`SubagentStart`/`Stop`, `Notification`) are UNVERIFIED too, for the same reason, and are not even
-wired in `config.toml` today - whether Kimi's hook runner supports them is a separate open
-question from whether it honors `deny`.
+`SubagentStart`/`Stop`, `Notification`) were UNVERIFIED too, for the same reason, and were not even
+wired in `config.toml` at the time - whether Kimi's hook runner supports them was a separate open
+question from whether it honors `deny`. **Superseded by the source-analysis sections above**: that
+live follow-up is still worth doing someday as the strictly strongest possible confirmation, but is
+no longer blocking - the control-flow/schema evidence above is about as conclusive as it gets short
+of an actual funded run.
 
 ## agy (Google Antigravity CLI)
 
@@ -323,19 +527,22 @@ placeholder - the model infers the argument from the user's own message instead.
   of `$ARGUMENTS` before the model sees a skill body (unlike Claude Code, where the harness expands
   it before the model's turn even starts). When the first probe worked, it worked because the model
   read the trailing text of the user's own prompt and connected it to "whatever arguments were
-  given" by itself - not because anything was substituted into the skill text. This is the same
-  category difference the ticket anticipated: Kimi's skills are architecturally identical
-  (model-activated, same SKILL.md shape), so the same conclusion almost certainly holds there too,
-  but that remains **inferred by analogy, not independently tested** - no funded/logged-in Kimi
-  account was available to repeat this probe directly (see the Kimi section above).
+  given" by itself - not because anything was substituted into the skill text. **CORRECTION (same
+  ticket, later the same night): the analogy to Kimi below turned out to be wrong.** Kimi's skills
+  share the same `SKILL.md` shape and model-activation idea, but reading Kimi's own bundled source
+  (see the Kimi section above) found a genuine slash-command-style `$ARGUMENTS` substitution layer
+  that agy simply does not have - the two CLIs are not architecturally identical on this specific
+  point after all. Kimi's finding is now source-confirmed, not inferred by analogy from agy's.
 - Probe skill removed from the live `~/.gemini/config/skills/` catalog afterward; it never shipped
   as a real ability.
-- `render-abilities.ps1`'s Kimi and agy branches were updated as a result: a rendered skill body no
-  longer carries a literal, never-substituted `$ARGUMENTS` token. It's rewritten to the plain-English
-  phrase "the rest of the user's own message" (readable by a model with no harness expansion in
-  play), with a short note prepended to any skill whose body actually used `$ARGUMENTS` explaining
-  that there's no substitution mechanism on these CLIs and the model should read the argument
-  directly from the conversation itself.
+- `render-abilities.ps1`'s **agy branch only** was updated as a result: a rendered skill body no
+  longer carries a literal, never-substituted `$ARGUMENTS` token for agy. It's rewritten to the
+  plain-English phrase "the rest of the user's own message" (readable by a model with no harness
+  expansion in play), with a short note prepended to any skill whose body actually used `$ARGUMENTS`
+  explaining that there's no substitution mechanism on agy and the model should read the argument
+  directly from the conversation itself. (The Kimi branch was briefly given the same treatment
+  before the correction above, then reverted back to rendering `$ARGUMENTS` literally - see the Kimi
+  section's own `$ARGUMENTS` write-up for why.)
 
 **CONFIRMED-NOT-SUPPORTED:**
 
