@@ -52,13 +52,26 @@ to every CLI's own convention, rather than hand-maintained per provider:
   `description`, `argument-hint`, `claude-only: true|false`). A `claude-only` ability depends on a
   Claude Code SDK/runtime mechanism with no equivalent elsewhere (`SendMessage`/`Agent`/
   `ScheduleWakeup`/`Artifact`) and is honestly marked unavailable on other CLIs rather than silently
-  broken. `shared/commands/*.md` is a **render target**, not a source — don't hand-edit it.
+  broken — but "no equivalent" is checked per-mechanism, not assumed wholesale: MAT-T98 found Codex's
+  `multi_agent_v2` `spawn_agent` family is a real (if off-by-default/experimental) equivalent for the
+  Agent-tool half of `/allocate` (recorded in its `codex-equivalent`/`codex-equivalent-note`
+  frontmatter, rendered as a distinct caveated note rather than silently enabled), while `/research`
+  and the `member-contact` template's cross-login `SendMessage` use is architecturally a different,
+  still-unbridged gap even though Codex has its own `spawn_agent`/`codex agents` concepts (see
+  docs/hook-contract-matrix.md's "`claude-only` abilities" section for exactly why). `ScheduleWakeup`
+  and `Artifact` (Claude.ai-hosted publishing) remain genuinely Claude-only with no plausible
+  Codex/Kimi/agy equivalent. `shared/commands/*.md` is a **render target**, not a source — don't
+  hand-edit it.
 - **Renderer**: `render-abilities.ps1` installs every non-claude-only ability into each CLI's real,
   empirically-confirmed extension point:
   - **Claude**: regenerates `shared/commands/*.md`, synced to `~/.claude/commands/`.
-  - **Codex**: has no custom-prompts directory (confirmed by testing, not assumed) — abilities are
-    collected into `shared/codex-command-catalog.md`, referenced from AGENTS.md, which Codex reads
-    natively.
+  - **Codex**: has no native "/name args" slash-command parser (confirmed by testing, not assumed —
+    see docs/hook-contract-matrix.md's "Plugin system and skill-directory correction"). Abilities
+    render two ways: into `$CODEX_HOME/skills/<name>/SKILL.md` (CONFIRMED-WORKING, MAT-T98 — a plain
+    skill folder dropped there directly, no plugin needed, is auto-discovered and invoked, correcting
+    an earlier assumption that this path only held an internal `.system` cache) and into
+    `shared/codex-command-catalog.md`, referenced from AGENTS.md, as a human-readable secondary copy
+    Codex reads natively.
   - **Kimi**: `~/.kimi-code/skills/<name>/SKILL.md` (confirmed auto-discovery path, same
     directory-per-skill shape Claude's Skill tool uses).
   - **agy**: `~/.gemini/config/skills/<name>/SKILL.md` — agy's real global customization root

@@ -6,11 +6,15 @@ section per CLI. Claude, Codex and Kimi rows below were filled in by MAT-T94; th
 started by MAT-T96 and extended by MAT-T99 (deny enforcement, SessionStart/PreInvocation/
 PostInvocation, project-local discovery); the Codex section's `SubagentStart`/`SubagentStop`/
 `Notification` rows were filled in by MAT-T100. MAT-T98 separately settled whether a rendered
-skill's `$ARGUMENTS` placeholder is substituted by agy (live-tested: it is not) and by Kimi
-(source-confirmed: it genuinely is - see the Kimi section below, which also upgrades Kimi's whole
-hook-event row from UNVERIFIED using the same source-reading technique) - that's a skill-authoring
-question, not one of the lifecycle hooks this table tracks, so it isn't its own table row, but it's
-called out in the summary table below too since the two CLIs turned out to behave oppositely.
+skill's `$ARGUMENTS` placeholder is substituted by agy (live-tested: it is not), by Kimi
+(source-confirmed: it genuinely is), and by Codex (live-tested: it is not, same as agy - see each
+CLI's own section below, which also upgrades Kimi's whole hook-event row from UNVERIFIED using the
+same source-reading technique) - that's a skill-authoring question, not one of the lifecycle hooks
+this table tracks, so it isn't its own table row, but it's called out in the summary table below too
+since the CLIs turned out to behave differently. MAT-T98 also did a second, harder pass on Codex's
+own plugin system and on which `claude-only` abilities have a real (if experimental or partial)
+Codex equivalent - see "Plugin system and skill-directory correction" and "`claude-only` abilities:
+real vs. unbridgeable Codex equivalents" under the Codex section below.
 
 ## Summary table
 
@@ -32,7 +36,7 @@ confirmed and its caveats - this table is a locator, not the full story.
 | SubagentStart | CONFIRMED-WORKING | CONFIRMED-WORKING | CONFIRMED-WORKING (source)¹ | UNVERIFIED |
 | SubagentStop | CONFIRMED-WORKING | CONFIRMED-WORKING | CONFIRMED-WORKING (source)¹ | UNVERIFIED |
 | Notification | CONFIRMED-WORKING | CONFIRMED-NOT-SUPPORTED | CONFIRMED-WORKING (source)¹ | UNVERIFIED |
-| `$ARGUMENTS` skill-body substitution | CONFIRMED-WORKING (native slash commands) | n/a (no custom-prompts surface - see Codex section) | CONFIRMED-WORKING (source)¹ | CONFIRMED-NOT-SUPPORTED (live-tested, MAT-T98) |
+| `$ARGUMENTS` skill-body substitution | CONFIRMED-WORKING (native slash commands) | CONFIRMED-NOT-SUPPORTED (live-tested, MAT-T98 - see Codex section) | CONFIRMED-WORKING (source)¹ | CONFIRMED-NOT-SUPPORTED (live-tested, MAT-T98) |
 
 ¹ Kimi's row is **source-confirmed** (MAT-T98, 2026-11-06), not live-tested against a running tool
 call - see the Kimi section below for exactly what "source-confirmed" means here and why it is
@@ -156,6 +160,125 @@ Windows sandbox/execution-policy check (`Rejected("... rejected: blocked by poli
 approval decision was ever reached, so `permissionRequest` itself was never actually observed firing
 in this session - a `--approve-for-me` run or an interactive (non-`exec`) session would be needed to
 exercise it, left as a follow-up rather than guessed at.
+
+### Plugin system and skill-directory correction (added by MAT-T98, 2026-11-06)
+
+MAT-T93/MAT-T95 had assumed Codex's plugin marketplace (`codex plugin ...`) was the one real
+extensibility surface and that `$CODEX_HOME\skills` held only an internal `.system` cache. MAT-T98
+took the harder second look the follow-up ticket asked for, using the real, already-installed Codex
+CLI on this machine (`codex-cli 0.153.4`) rather than guessing from `--help` text alone.
+
+**What a Codex plugin actually is** - read `codex plugin --help`, the real bundled plugin manifests
+under `~/.codex/.tmp/bundled-marketplaces/openai-bundled/plugins/*/.codex-plugin/plugin.json` (e.g.
+`codex-app-tools`, `browser`), and the plugin-creator skill's own `plugin-json-spec.md` reference. A
+`plugin.json` manifest is pure packaging around exactly three primitives, nothing else:
+- `skills` - a path to `SKILL.md` folders, model-interpreted by description match, same mechanism as
+  the Kimi/agy branches already in this file.
+- `hooks` - lifecycle event wiring (the `browser` plugin wires `Interrupt`/`SubagentStop`/`Stop` to
+  an MCP-tool hook type), not a user-facing command.
+- `mcpServers` - a real local MCP server exposing tool calls the model can invoke (`codex-app-tools`
+  wraps one), harness-dispatched once the model decides to call it - but still the model's judgment
+  call, never a literal user-typed `/name` the harness parses deterministically the way a Claude
+  Code command file is.
+
+**No plugin was built.** A plugin only adds marketplace registration overhead (`marketplace.json`,
+`[marketplaces.*]`/`[plugins."name@marketplace"]` entries in `config.toml`, versioning, `interface`
+metadata for the plugin gallery) around the `skills` mechanism that turns out to already work
+directly (next point) - exactly the "don't force a heavyweight, fragile mechanism for marginal gain"
+case the follow-up ticket allowed for. The MCP-`mcpServers` path is real tool dispatch, but building
+and registering a custom MCP server, then confirming whether Codex's interactive client additionally
+surfaces an MCP server's `prompts/list`/`prompts/get` capability (the one MCP primitive actually
+designed for user-invocable templated commands - present in the MCP SDK code bundled inside Codex's
+own `codex-app-tools` plugin, `server.mjs`) as a literal typed `/name`, would require a real
+interactive TUI session with a custom server running - not safely exercisable in a non-interactive
+sandboxed session the way the rest of this file's tests are. Documented here as a genuinely open,
+confirmed-possible path for whoever next has an interactive terminal to check; not forced.
+
+**CORRECTION - `$CODEX_HOME\skills` is NOT limited to the `.system` cache.** A plain,
+non-`.system`-prefixed `skills\<name>\SKILL.md` dropped there directly (no plugin, no marketplace)
+IS auto-discovered and invoked. Confirmed twice:
+1. An isolated scratch `CODEX_HOME` (copy of `auth.json` only, same safe-testing convention as the
+   rest of this file) with one probe skill (`description`: "use this whenever the user's message is
+   exactly 'run the probe'"). `codex exec --dangerously-bypass-approvals-and-sandbox "run the
+   probe"` replied "I'm using the mat-t98-probe skill to run the diagnostic," read the file itself
+   via its own `exec`/shell tool (a real `Get-Content` call, not a harness auto-injection), and then
+   answered exactly `MAT-T98-SKILL-PROBE-OK` as instructed.
+2. End-to-end against the **real, live** `$CODEX_HOME` after `render-abilities.ps1`'s new Codex
+   branch (see that script) rendered the real ability catalog into `~/.codex/skills/<name>/SKILL.md`:
+   `codex exec --sandbox read-only "/qq what is 2+2"` picked the real `qq` skill on its own ("I'm
+   using the qq skill for a direct answer"), read `~/.codex/skills/qq/SKILL.md` via its own shell
+   tool, and answered `4` directly - exactly the ability's intended behavior, with no prompting
+   beyond the literal `/qq ...` text a user would actually type.
+
+This is the same tier of mechanism as the Kimi/agy branches (model-interpreted from a description,
+not a deterministic slash parser - so it still doesn't make the summary table's `$ARGUMENTS` row or
+anything else "CONFIRMED-WORKING" as a true native command parser), but it is strictly better than
+the AGENTS.md-embedded catalog text it was assumed to be the only option: it costs nothing in
+context until a skill's description actually matches, rather than being read in full every session.
+`render-abilities.ps1` now renders portable (non claude-only) abilities both ways: into
+`$CODEX_HOME\skills\<name>\SKILL.md` (the real, working mechanism) and still into
+`shared\codex-command-catalog.md` (kept as the human-readable index and AGENTS.md's documented
+pointer target).
+
+**`$ARGUMENTS` skill-body substitution - CONFIRMED-NOT-SUPPORTED, live-tested.** The same `/qq what
+is 2+2` run above is direct evidence: the shell-read `SKILL.md` content printed in Codex's own
+transcript still showed the raw, unreplaced literal text `/qq $ARGUMENTS was typed directly by the
+user...`, and the model resolved "what is 2+2" out of the conversation itself to answer `4` - the
+same model-activated-with-no-harness-substitution pattern already confirmed for agy, not Kimi's real
+substitution layer. The placeholder is left literal in the rendered Codex skill bodies for now (it
+resolved correctly in this test regardless); revisit with agy's "rewrite to plain English" treatment
+if a harder ability's Codex rendering ever reads badly with it literal.
+
+### `claude-only` abilities: real vs. unbridgeable Codex equivalents (added by MAT-T98, 2026-11-06)
+
+Of `shared/abilities/*.md`, exactly two non-template abilities and one template are `claude-only`:
+`allocate`, `research`, and the `member-contact` template behind the per-org-member commands.
+MAT-T98 checked each against MAT-T100's `spawn_agent`/`wait_agent`/`send_message`/`followup_task`/
+`close_agent`/`list_agents` (`multi_agent_v2`) finding and against `codex --help`'s own
+`agents`/`queue`/`resume` subcommands, to see which gap is a real, bridgeable capability question
+and which is architecturally a different problem no feature flag fixes.
+
+- **`/allocate` - a real, if experimental and incomplete, Codex equivalent exists.** This ability's
+  core mechanism (spawn N parallel subagents, each works a ticket, foreground, in this same session)
+  is architecturally the same shape as MAT-T100's `spawn_agent` family - a genuine nested mid-turn
+  child thread, not a stub. Recorded in `allocate.md`'s new `codex-equivalent: multi_agent_v2` /
+  `codex-equivalent-note` frontmatter (rendered into `codex-command-catalog.md`'s `/allocate` entry
+  as a distinct "confirmed-possible, not wired in automatically" block, never folded into a flat
+  "unavailable"), with three honest caveats checked against this machine's real `codex features
+  list`, not assumed: (1) `multi_agent_v2`'s *stage* is `stable` but it ships **OFF by default**
+  (needs an explicit, user-unapproved `-c features.multi_agent_v2=true`) - the ticket's own
+  instruction to distinguish a stability *label* from an actual opt-in default is the reason this is
+  presented as "confirmed-possible," never as drop-in parity; (2) whether `spawn_agent` exposes a
+  per-child **model-selection** parameter (this ability picks sonnet/opus per ticket from the
+  Orchestrator's own `model:` line) is unconfirmed - MAT-T100's observed `SubagentStart` payload only
+  carried `agent_type: "default"`, no `model` field, and `codex app-server generate-json-schema`
+  (run under `-c features.multi_agent_v2=true`) has no `SpawnAgent` schema to check at all, because
+  it's a model-facing tool, not an app-server RPC the schema generator covers; (3) Kimi/agy still
+  have no confirmed equivalent of any kind, so marking `/allocate` portable would be uneven across
+  non-Claude CLIs rather than Codex-specific. Nothing was silently wired in; this is a documented,
+  caveated path for a future ticket to pick up once a user opts into `multi_agent_v2` and someone
+  confirms per-child model selection.
+- **`/research` and `member-contact` - genuinely unbridgeable on Codex today, confirmed rather than
+  assumed.** Both need to reach a session on a **different org member's own login** (a separate
+  top-level CLI process started via `orchestrator org start <repo> <who>`), not a child of the
+  current session - so `multi_agent_v2`'s nested-child mechanism is the wrong primitive here by
+  construction (MAT-T100 already noted `spawn_agent` is architecturally distinct from Codex's
+  separate top-level-session `agents`/`app-server` subsystem; this ticket confirms the distinction
+  matters in practice for these two abilities specifically, not just as a theoretical aside). That
+  separate subsystem is real, though, and more solid than `multi_agent_v2` in one sense - no feature
+  flag needed at all, `codex features list` doesn't even gate it: `codex agents` (browse every
+  session on "the shared local app-server daemon"), `$CODEX_HOME/session_index.jsonl` (the same
+  session list as a plain, scriptable file), and `codex queue --thread <uuid|name> --message <text>`
+  (push a message into an existing session from outside it, found via `codex queue --help`) are all
+  stable top-level `codex` subcommands today, architecturally the right shape for "list other
+  sessions" + "message one directly." But "the shared local app-server daemon" is scoped to one
+  `CODEX_HOME`/one login - it has no path to a session running under a *different* org member's own
+  separate login the way these two abilities need. So this is a confirmed real primitive for a
+  narrower, different feature nobody has asked for (same-login, cross-window messaging), not a
+  bridge for the cross-login gap `research`/`member-contact` actually have. Both abilities' frontmatter
+  now carries a `codex-equivalent-note` recording this precisely (and explicitly warning a future
+  reader off the `multi_agent_v2` red herring), but `claude-only: true` stays as-is for both -
+  correctly, not just cautiously.
 
 ## Kimi
 

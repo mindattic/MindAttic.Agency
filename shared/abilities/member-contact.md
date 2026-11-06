@@ -4,6 +4,7 @@ description: Template ability backing the per-org-member commands (/amy, /erin, 
 argument-hint: "research <what> | <message>"
 claude-only: true
 claude-only-reason: Depends on ListAgents (to discover this session's own name/other running sessions) and SendMessage (to deliver a reply to a named peer session) - both Claude-only mechanisms. No confirmed equivalent "list/message other running CLI sessions" primitive exists on Codex/Kimi/agy yet.
+codex-equivalent-note: Same finding as the research ability's (read that one for the full reasoning) - Codex's real, stable, non-experimental `codex agents`/session_index.jsonl/`codex queue --thread --message` trio is architecturally the right shape for "list and message other sessions," but it is scoped to one CODEX_HOME/one login's shared local app-server daemon, and this ability's whole point is reaching a DIFFERENT org member's own separate login. Not a bridge for this gap; genuinely unbridgeable on Codex today, confirmed rather than assumed.
 template: true
 template-vars: [NAME, EMAIL, SLUG]
 rendered-by: shared/member-commands.ps1 (reads 'orchestrator org members --json', fills shared/commands/member/member.md.template and ambiguous.md.template per active member/alias, MAT-T89). render-abilities.ps1 does not duplicate that logic for Claude; it just makes sure the step still runs.
