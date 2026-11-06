@@ -65,6 +65,14 @@ outside this ticket's file list (AGENTS.md, this doc, and the two ability files)
 part: Claude-only today by a confirmed, deliberate implementation choice - not yet built, and not
 attempted by this ticket.**
 
+Spun out as `M.ORCH-T1484` in `MindAttic.Orchestrator` to design it properly rather than patch it
+blind - it needs two decisions (where a per-member provider preference would live; what "own login"
+means for a CLI with no account-isolation scheme at all today) that touch real org members' live
+login sessions, so an agent correctly stopped short rather than guess. **Ryan's call (2026-11-06):
+leave it Claude-only for now** - matches actual usage (~99% Claude) and no other member's real
+provider preference is known or recorded anywhere; `M.ORCH-T1484` closed `wont-do` with the
+investigation findings kept as the starting design notes for whenever this is actually needed.
+
 ### b) The live, synchronous "message the sender back mid-session" step - CONFIRMED-ARCHITECTURALLY-IMPOSSIBLE
 
 `research.md` step 5 calls Claude's own `SendMessage` to push a reply into the *specific, already
