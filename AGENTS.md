@@ -120,6 +120,22 @@ and resume on your own:
   is rate-based, so a burst of new subagents spikes the rate and overshoots the line before the
   forecast catches it. Start a few, let `subagent_note` settle, then add more.
 
+## Clean up after yourself: disk and machine
+
+The system drive filled to 1.2 MB free on 2026-11-05. Agents had left 27.6 GB of scratch build copies in
+`%TEMP%\claude`, and parallel game players and builds had grown the pagefile to 43 GB (MAT-T90). So:
+
+- **Delete what you made when the task ends.** That covers scratchpad copies of a repo or build tree
+  (`Intermediate/`, `obj/`, `bin/`, `Library/`, `*.pch`, `git archive` snapshots), soak/record output you
+  no longer need, and converted media. Keep only what the report links to.
+- **One heavy process per machine.** Run one game player, one Unity/Unreal build, or one long soak at a
+  time. Check for a running one before you launch, and quit what you started (e.g. the harness `quit`)
+  before you report.
+- **Respect the threshold.** `orchestrator settings --disk-cleanup-gb <GB>` (M.ORCH-T1449) is the global
+  floor. Below it, the orchestrator deletes stale agent-owned temp itself. Before writing anything big,
+  check free space and clean your own scratch first if you're near the floor. Never delete user files or
+  another live session's outputs; report them instead.
+
 ## Commits: one ticket, one story, nothing else
 
 This applies to every commit, whoever makes it (`/commit`, `/allocate`, the orchestrator, a subagent, a
