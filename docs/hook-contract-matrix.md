@@ -4,7 +4,8 @@ Per-CLI confirmed/unverified behavior for the shared lifecycle hooks
 (`shared/hooks/pace-gate.py`, `shared/hooks/context-gate.py`, `shared/hooks/rl-check.py`), one
 section per CLI. Claude, Codex and Kimi rows below were filled in by MAT-T94; the agy section was
 started by MAT-T96 and extended by MAT-T99 (deny enforcement, SessionStart/PreInvocation/
-PostInvocation, project-local discovery).
+PostInvocation, project-local discovery); the Codex section's `SubagentStart`/`SubagentStop`/
+`Notification` rows were filled in by MAT-T100.
 
 ## Summary table
 
@@ -23,9 +24,9 @@ confirmed and its caveats - this table is a locator, not the full story.
 | PreInvocation / PostInvocation (agy-only events) | n/a | n/a | n/a | CONFIRMED-WORKING |
 | Project-local discovery (`.agents/` for agy) | n/a | n/a | n/a | CONFIRMED-WORKING |
 | UserPromptSubmit | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED |
-| SubagentStart | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED | UNVERIFIED |
-| SubagentStop | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED | UNVERIFIED |
-| Notification | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED | UNVERIFIED |
+| SubagentStart | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED |
+| SubagentStop | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED |
+| Notification | CONFIRMED-WORKING | CONFIRMED-NOT-SUPPORTED | UNVERIFIED | UNVERIFIED |
 
 ## Claude Code
 
@@ -91,13 +92,60 @@ the interactive shell-approval step so the run could be fully non-interactive.
   re-validated as parseable JSON (`json.load`) afterward; the `codex` argv on the `Stop` hook
   command was preserved untouched by the path substring swap.
 
-**UNVERIFIED:**
+**CONFIRMED-WORKING (added by MAT-T100, 2026-11-06): `SubagentStart`/`SubagentStop`.**
 
-- `SubagentStart`/`SubagentStop` - `codex exec` ran a single flat agent turn; nothing in this test
-  exercised (or ruled out) a subagent-equivalent concept in Codex.
-- `Notification` - not triggered by the exercised flow, since
-  `--dangerously-bypass-approvals-and-sandbox` removed whatever normally would have produced one
-  (e.g. an approval prompt). Codex may or may not support this event at all; not determined.
+Codex does have a real, literal subagent mechanism - not just an analogous one. `codex.exe`'s own
+binary strings (`codex app-server generate-json-schema`'s `HookEventName` enum, and plain-text UI
+strings like "Subagents are currently disabled in your config") show Codex ships a genuine
+`spawn_agent`/`wait_agent`/`send_message`/`followup_task`/`close_agent`/`list_agents` tool family
+that spawns a real nested child thread mid-conversation - architecturally the same shape as
+Claude's Task tool, not Codex's separate top-level-session `agents`/`app-server` subsystem (that
+one really is a different, unrelated concept: independent sessions a person browses with
+`codex agents`, never nested mid-turn). The internal `HookEventName` enum is exhaustive and
+literally includes `subagentStart`/`subagentStop` alongside `preToolUse`, `postToolUse`,
+`permissionRequest`, `preCompact`, `postCompact`, `sessionStart`, `sessionEnd`,
+`userPromptSubmit`, `stop`, `interrupt` - twelve variants total, nothing named `notification`.
+
+Tested the same safe way as the rest of this section (isolated scratch `CODEX_HOME`, a copy of
+`auth.json` only, the real `~/.codex/hooks.json` never touched): spawning is gated behind the
+`multi_agent_v2` feature flag (off by default; confirmed accepted by `-c features.multi_agent_v2=true
+--strict-config` with no "unknown field" error, unlike several guessed `subagents.*`/`tools.*` keys
+that were rejected). With a throwaway `hooks.json` wiring `SubagentStart`/`SubagentStop` to a
+marker-writing script and `codex exec -c features.multi_agent_v2=true --dangerously-bypass-hook-trust
+--dangerously-bypass-approvals-and-sandbox` asked to use `spawn_agent` to run a real shell command
+in a child agent and wait for it:
+
+- `SubagentStart` fired with `{"session_id", "turn_id", "transcript_path", "cwd",
+  "hook_event_name": "SubagentStart", "model", "permission_mode", "agent_id", "agent_type": "default"}`
+  - `agent_id` is a **different** thread id from the parent `session_id`, confirming a genuinely
+  separate child thread, not the parent relabeled.
+- `SubagentStop` fired with the same shape plus `agent_transcript_path` (a **second, distinct**
+  rollout file from the parent's own `transcript_path`) and `last_assistant_message:
+  "hello-subagent-mat-t100"` - the exact text the child agent's own transcript produced, verified by
+  the separate transcript path rather than trusting the parent's self-reported prose (the parent, in
+  an earlier run with `multi_agent_v2` left off and no `spawn_agent` tool actually available, had
+  fabricated an identical-looking "ran it, here's the output" answer with zero real tool call behind
+  it - the two-file-paths-plus-marker check is what rules that false positive out here).
+- Every field name is Claude's own vocabulary verbatim (`hook_event_name`, `session_id`,
+  `last_assistant_message`, `stop_hook_active`), same convention already confirmed for Codex's other
+  five events.
+
+**CONFIRMED-NOT-SUPPORTED (added by MAT-T100, 2026-11-06): `Notification`.**
+
+Not merely untested - ruled out. The internal `HookEventName` enum above is exhaustive (it is the
+literal set the app-server protocol schema and the hook dispatcher both serialize against) and has
+no `notification` variant under any name. Empirically, wiring a throwaway `Notification` key into
+the same scratch `hooks.json` alongside the working events above produced zero errors at load time
+(Codex silently accepts and just never fires an unrecognized event key) and the marker script for it
+was never invoked across every test run in this ticket. The closest real analog is `permissionRequest`
+(fires around an approval decision, which is conceptually what Claude's `Notification` covers -
+"the agent is waiting on you") - also in the enum, also wired as a throwaway hook here, but still
+**UNVERIFIED**: every attempt to force an approval prompt in non-interactive `codex exec` (default
+policy, `-c approval_policy=on-request -s workspace-write`) was auto-rejected by a lower-level
+Windows sandbox/execution-policy check (`Rejected("... rejected: blocked by policy")`) before any
+approval decision was ever reached, so `permissionRequest` itself was never actually observed firing
+in this session - a `--approve-for-me` run or an interactive (non-`exec`) session would be needed to
+exercise it, left as a follow-up rather than guessed at.
 
 ## Kimi
 

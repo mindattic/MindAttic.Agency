@@ -113,7 +113,13 @@ _Nothing recorded yet._
 | MAT-T90 | 2026-11-05 | docs | closed | Agent standard: clean up after yourself - delete your own scratchpad build copies/snapshots and stop extra game players/builds when a task ends; respect orchestrator --disk-cleanup-gb; one heavy player/build at a time per machine | — |
 | MAT-T91 | 2026-11-05 | chore | open | Create new repo Mods.Mech5Mercs.CoopPartner (gh repo create, clone-repo.ps1, scaffold) | — |
 | MAT-T92 | 2026-11-05 | chore | closed | Sync AGENTS.md: the login hard-cutoff line now says 96% of the 5-hour window (lowered from 98%, M.ORCH-T1462) since the orchestrator can't predict an individual tool call's size before it runs | — |
-| MAT-T93 | 2026-11-06 | feature | open | CLI-agnostic capability framework: give Codex/Antigravity/Kimi full parity with Claude's abilities | — |
+| MAT-T93 | 2026-11-06 | feature | closed | CLI-agnostic capability framework: give Codex/Antigravity/Kimi full parity with Claude's abilities | — |
 | MAT-T94 | 2026-11-06 | chore | closed | Bring pace-gate.py/context-gate.py/rl-check.py under version control and wire them identically across Claude/Codex/Kimi/agy | — |
 | MAT-T95 | 2026-11-06 | feature | closed | Single-source ability catalog + per-CLI renderer: port Claude's 32 slash commands/skills so Codex, Kimi, and agy get them too | 944b26f |
 | MAT-T96 | 2026-11-06 | feature | closed | Bootstrap Google Antigravity (agy) config and wire it into the shared standard (hooks, AGENTS.md discovery, abilities) | — |
+| MAT-T97 | 2026-11-06 | docs | closed | Document the cross-CLI capability framework in AGENTS.md itself | — |
+| MAT-T98 | 2026-11-06 | chore | open | Follow-ups from MAT-T93: verify Kimi/agy deny enforcement, Codex SubagentStart/Stop+Notification, skill $ARGUMENTS substitution, and Launcher pre-launch provisioning | — |
+| MAT-T99 | 2026-11-06 | chore | closed | Verify agy PreToolUse deny enforcement and remaining untested agy hook events | — |
+| MAT-T100 | 2026-11-06 | chore | closed | Verify Codex SubagentStart/SubagentStop/Notification hook events | — |
+| MAT-T101 | 2026-11-06 | feature | wont-do | MindAttic.Launcher: provision a CLI's abilities/hooks automatically before each launch, so future enhancements are shared without a manual rerun | Misfiled under wrong repo; correct ticket is M.LNCH-T113 |
+| MAT-T102 | 2026-11-06 | feature | closed | DUPLICATE of M.LNCH-T113, misfiled under the wrong repo -- see M.LNCH-T113 | — |
