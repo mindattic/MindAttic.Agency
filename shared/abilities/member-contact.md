@@ -1,7 +1,7 @@
 ---
 name: member-contact
-description: Template ability backing the per-org-member commands (/amy, /erin, /honey, /jordan, /ohleo199, /pdftransferjr, /ryan, /ryandebraal, /shampoo1232, /waffle, and any alias generated for an active org member) - "/<member> research <what>" hands them a research task (see the research ability); anything else is a message to that member's running CLI, or opens one on their login with it.
-argument-hint: "research <what> | <message>"
+description: Template ability backing the per-org-member commands (/amy, /erin, /honey, /jordan, /ohleo199, /pdftransferjr, /ryan, /ryandebraal, /shampoo1232, /waffle, and any alias generated for an active org member) - "/<member> research <what>" hands them a research task (see the research ability); "/<member> pair [repo]" splits a repo's open tickets between you both and starts each working their share; anything else is a message to that member's running CLI, or opens one on their login with it.
+argument-hint: "research <what> | pair [repo] | <message>"
 claude-only: true
 claude-only-reason: Same two-part finding as the research ability's (read that one, and docs/claude-only-abilities.md, for the full reasoning) - MAT-T103 traced this past SendMessage/ListAgents to a more fundamental reason. The "research <what>" branch starts work via `orchestrator org start <repo> <who>`, which is hardcoded to a Claude session regardless of the target member's own configured CLI (MindAttic.Orchestrator's --account login path explicitly refuses any provider but Claude, confirmed from source) - so there is no cross-CLI "start this under their own login" path yet. The plain-message branch still depends on ListAgents (to discover this session's own name/other running sessions) and SendMessage (to deliver a reply to a named peer session) - both Claude-only mechanisms with no confirmed equivalent for reaching a specific, already-running peer conversation live. A generic async substitute exists for "research": the filed ticket closes with a note when the work lands, pollable by any CLI via `tickets ticket show <ID> --json` - no live push needed to eventually learn the answer.
 codex-equivalent-note: Same finding as the research ability's (read that one for the full reasoning) - Codex's real, stable, non-experimental `codex agents`/session_index.jsonl/`codex queue --thread --message` trio is architecturally the right shape for "list and message other sessions," but it is scoped to one CODEX_HOME/one login's shared local app-server daemon, and this ability's whole point is reaching a DIFFERENT org member's own separate login. Not a bridge for this gap; genuinely unbridgeable on Codex today, confirmed rather than assumed. MAT-T103 additionally confirmed `orchestrator org start` itself never reaches a non-Claude session on any provider, so the gap predates messaging entirely.
@@ -20,6 +20,13 @@ does this from the live member list; keep using it rather than hand-writing one 
 
 - **`research <what>`**: follow the research ability exactly, with `<who>` = this member's email and
   `<what>` = everything after the word `research`.
+- **`pair [repo]`** (MAT-T104): the two of you work one repo side by side. Split its open tickets with
+  `tickets ticket divvy --repo <Repo> --member <your login's email> --member <their email>` (each ticket
+  assigned to one of you, so the Orchestrator dispatches it only on that login), start their CLI in the
+  repo (or message their running one) with a brief telling it to run /allocate -repo=<Repo> on its share,
+  run /allocate -repo=<Repo> here on yours, and coordinate through `tickets ticket note`, `tickets ticket
+  block` and SendMessage; whoever runs dry runs `divvy --rebalance`. The generated command template
+  (shared/commands/member/member.md.template) holds the exact steps and brief.
 - **Anything else is a message to this member**, verbatim:
   1. Call ListAgents. Its first line names this session ("This session is <name> [<ref>]"): that is
      the reply address.
