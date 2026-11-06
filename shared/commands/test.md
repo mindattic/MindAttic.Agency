@@ -4,9 +4,10 @@ argument-hint: "[optional repo name, when not standing in one]"
 allowed-tools: PowerShell, Bash, Read, Grep, Glob
 ---
 
-# /test — run a repo's whole test suite
+# /test - run a repo's whole test suite
 
-Global MindAttic command (`/run tests` and `/run test` are aliases for it). This is the user explicitly asking for tests, so the "tests only when the
+Global MindAttic command (`/run tests` and `/run test` are aliases for it in Claude Code; see the
+`tests` ability for the separate `/tests` alias command). This is the user explicitly asking for tests, so the "tests only when the
 user says so" rule is satisfied for this one run. It runs the **whole** suite once, never a filtered
 slice, and nothing re-runs it automatically afterwards.
 
@@ -53,7 +54,7 @@ Group failures by likely cause and file one `--type fix` ticket per group in tha
 (`tickets ticket new --repo <Repo> --type fix --summary "<test(s)>: <symptom> (found by /tests)"`).
 Fixes need no approval, so work them through subagents, one per ticket, all in the repo's own checkout on
 `main` (the GOLDEN RULE: no separate branch or worktree, ever; subagents touch disjoint files):
-find the root cause (product regression → fix the code; stale or non-hermetic test → fix the test, and
+find the root cause (product regression -> fix the code; stale or non-hermetic test -> fix the test, and
 say why), verify with a **filtered** run of only its failing tests, commit with the ticket ID, land on
 main and close the ticket. Never re-run the full suite on your own afterwards: when they've landed,
 tell the user `/test` again will confirm it.

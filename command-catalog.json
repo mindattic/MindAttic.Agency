@@ -1,7 +1,7 @@
 ﻿{
     "standard":  "MindAttic Agent Standard",
     "protocolVersion":  "1.0",
-    "generatedAt":  "2026-11-05T08:46:16.5309807Z",
+    "generatedAt":  "2026-11-06T15:44:37.5213382Z",
     "items":  [
                   {
                       "scope":  "project",
@@ -569,6 +569,13 @@
                       "kind":  "skill",
                       "name":  "commit",
                       "path":  "Prose\\.claude\\skills\\commit\\SKILL.md"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "Prose",
+                      "kind":  "skill",
+                      "name":  "corobs",
+                      "path":  "Prose\\.claude\\skills\\corobs\\SKILL.md"
                   },
                   {
                       "scope":  "project",
@@ -1205,7 +1212,12 @@
                       "project":  "global",
                       "kind":  "command",
                       "name":  "allocate",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\allocate.md"
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\allocate.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\allocate.md",
+                      "renderedFor":  [
+                                          "claude"
+                                      ],
+                      "claudeOnly":  true
                   },
                   {
                       "scope":  "global",
@@ -1219,42 +1231,91 @@
                       "project":  "global",
                       "kind":  "command",
                       "name":  "bughunt",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\bughunt.md"
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\bughunt.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\bughunt.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
                   },
                   {
                       "scope":  "global",
                       "project":  "global",
                       "kind":  "command",
                       "name":  "capture",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\capture.md"
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\capture.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\capture.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
                   },
                   {
                       "scope":  "global",
                       "project":  "global",
                       "kind":  "command",
                       "name":  "commit",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\commit.md"
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\commit.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\commit.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
                   },
                   {
                       "scope":  "global",
                       "project":  "global",
                       "kind":  "command",
                       "name":  "crossrepo",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\crossrepo.md"
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\crossrepo.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\crossrepo.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
                   },
                   {
                       "scope":  "global",
                       "project":  "global",
                       "kind":  "command",
                       "name":  "deploy",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\deploy.md"
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\deploy.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\deploy.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
                   },
                   {
                       "scope":  "global",
                       "project":  "global",
                       "kind":  "command",
                       "name":  "do",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\do.md"
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\do.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\do.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
+                  },
+                  {
+                      "scope":  "global",
+                      "project":  "global",
+                      "kind":  "command",
+                      "name":  "dock",
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\dock.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\dock.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
                   },
                   {
                       "scope":  "global",
@@ -1268,7 +1329,13 @@
                       "project":  "global",
                       "kind":  "command",
                       "name":  "hey-listen",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\hey-listen.md"
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\hey-listen.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\listen.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
                   },
                   {
                       "scope":  "global",
@@ -1289,7 +1356,13 @@
                       "project":  "global",
                       "kind":  "command",
                       "name":  "listen",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\listen.md"
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\listen.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\listen.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
                   },
                   {
                       "scope":  "global",
@@ -1303,21 +1376,39 @@
                       "project":  "global",
                       "kind":  "command",
                       "name":  "org",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\org.md"
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\org.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\org.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
                   },
                   {
                       "scope":  "global",
                       "project":  "global",
                       "kind":  "command",
                       "name":  "organization",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\organization.md"
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\organization.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\org.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
                   },
                   {
                       "scope":  "global",
                       "project":  "global",
                       "kind":  "command",
                       "name":  "pacing",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\pacing.md"
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\pacing.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\pacing.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
                   },
                   {
                       "scope":  "global",
@@ -1331,35 +1422,64 @@
                       "project":  "global",
                       "kind":  "command",
                       "name":  "progress",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\progress.md"
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\progress.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\progress.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
                   },
                   {
                       "scope":  "global",
                       "project":  "global",
                       "kind":  "command",
                       "name":  "qq",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\qq.md"
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\qq.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\qq.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
                   },
                   {
                       "scope":  "global",
                       "project":  "global",
                       "kind":  "command",
                       "name":  "quickload",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\quickload.md"
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\quickload.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\quickload.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
                   },
                   {
                       "scope":  "global",
                       "project":  "global",
                       "kind":  "command",
                       "name":  "quicksave",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\quicksave.md"
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\quicksave.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\quicksave.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
                   },
                   {
                       "scope":  "global",
                       "project":  "global",
                       "kind":  "command",
                       "name":  "research",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\research.md"
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\research.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\research.md",
+                      "renderedFor":  [
+                                          "claude"
+                                      ],
+                      "claudeOnly":  true
                   },
                   {
                       "scope":  "global",
@@ -1387,21 +1507,52 @@
                       "project":  "global",
                       "kind":  "command",
                       "name":  "test",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\test.md"
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\test.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\test.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
                   },
                   {
                       "scope":  "global",
                       "project":  "global",
                       "kind":  "command",
                       "name":  "tests",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\tests.md"
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\tests.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\tests.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
+                  },
+                  {
+                      "scope":  "global",
+                      "project":  "global",
+                      "kind":  "command",
+                      "name":  "undock",
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\undock.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\undock.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
                   },
                   {
                       "scope":  "global",
                       "project":  "global",
                       "kind":  "command",
                       "name":  "unstuck",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\unstuck.md"
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\unstuck.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\unstuck.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
                   },
                   {
                       "scope":  "global",
@@ -1417,5 +1568,274 @@
                       "name":  "CLAUDE",
                       "path":  "C:\\Users\\ryand\\.claude\\CLAUDE.md"
                   }
-              ]
+              ],
+    "abilities":  [
+                      {
+                          "name":  "allocate",
+                          "aliases":  [
+
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\allocate.md",
+                          "claudeOnly":  true,
+                          "renderedFor":  [
+                                              "claude"
+                                          ]
+                      },
+                      {
+                          "name":  "bughunt",
+                          "aliases":  [
+
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\bughunt.md",
+                          "claudeOnly":  false,
+                          "renderedFor":  [
+                                              "claude",
+                                              "codex (shared/codex-command-catalog.md)",
+                                              "kimi"
+                                          ]
+                      },
+                      {
+                          "name":  "capture",
+                          "aliases":  [
+
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\capture.md",
+                          "claudeOnly":  false,
+                          "renderedFor":  [
+                                              "claude",
+                                              "codex (shared/codex-command-catalog.md)",
+                                              "kimi"
+                                          ]
+                      },
+                      {
+                          "name":  "commit",
+                          "aliases":  [
+
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\commit.md",
+                          "claudeOnly":  false,
+                          "renderedFor":  [
+                                              "claude",
+                                              "codex (shared/codex-command-catalog.md)",
+                                              "kimi"
+                                          ]
+                      },
+                      {
+                          "name":  "crossrepo",
+                          "aliases":  [
+
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\crossrepo.md",
+                          "claudeOnly":  false,
+                          "renderedFor":  [
+                                              "claude",
+                                              "codex (shared/codex-command-catalog.md)",
+                                              "kimi"
+                                          ]
+                      },
+                      {
+                          "name":  "deploy",
+                          "aliases":  [
+
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\deploy.md",
+                          "claudeOnly":  false,
+                          "renderedFor":  [
+                                              "claude",
+                                              "codex (shared/codex-command-catalog.md)",
+                                              "kimi"
+                                          ]
+                      },
+                      {
+                          "name":  "do",
+                          "aliases":  [
+
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\do.md",
+                          "claudeOnly":  false,
+                          "renderedFor":  [
+                                              "claude",
+                                              "codex (shared/codex-command-catalog.md)",
+                                              "kimi"
+                                          ]
+                      },
+                      {
+                          "name":  "dock",
+                          "aliases":  [
+
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\dock.md",
+                          "claudeOnly":  false,
+                          "renderedFor":  [
+                                              "claude",
+                                              "codex (shared/codex-command-catalog.md)",
+                                              "kimi"
+                                          ]
+                      },
+                      {
+                          "name":  "listen",
+                          "aliases":  [
+                                          "hey-listen"
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\listen.md",
+                          "claudeOnly":  false,
+                          "renderedFor":  [
+                                              "claude",
+                                              "codex (shared/codex-command-catalog.md)",
+                                              "kimi"
+                                          ]
+                      },
+                      {
+                          "name":  "member-contact",
+                          "aliases":  [
+
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\member-contact.md",
+                          "claudeOnly":  true,
+                          "renderedFor":  [
+                                              "claude (via shared/member-commands.ps1)"
+                                          ]
+                      },
+                      {
+                          "name":  "org",
+                          "aliases":  [
+                                          "organization"
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\org.md",
+                          "claudeOnly":  false,
+                          "renderedFor":  [
+                                              "claude",
+                                              "codex (shared/codex-command-catalog.md)",
+                                              "kimi"
+                                          ]
+                      },
+                      {
+                          "name":  "pacing",
+                          "aliases":  [
+
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\pacing.md",
+                          "claudeOnly":  false,
+                          "renderedFor":  [
+                                              "claude",
+                                              "codex (shared/codex-command-catalog.md)",
+                                              "kimi"
+                                          ]
+                      },
+                      {
+                          "name":  "progress",
+                          "aliases":  [
+
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\progress.md",
+                          "claudeOnly":  false,
+                          "renderedFor":  [
+                                              "claude",
+                                              "codex (shared/codex-command-catalog.md)",
+                                              "kimi"
+                                          ]
+                      },
+                      {
+                          "name":  "qq",
+                          "aliases":  [
+
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\qq.md",
+                          "claudeOnly":  false,
+                          "renderedFor":  [
+                                              "claude",
+                                              "codex (shared/codex-command-catalog.md)",
+                                              "kimi"
+                                          ]
+                      },
+                      {
+                          "name":  "quickload",
+                          "aliases":  [
+
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\quickload.md",
+                          "claudeOnly":  false,
+                          "renderedFor":  [
+                                              "claude",
+                                              "codex (shared/codex-command-catalog.md)",
+                                              "kimi"
+                                          ]
+                      },
+                      {
+                          "name":  "quicksave",
+                          "aliases":  [
+
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\quicksave.md",
+                          "claudeOnly":  false,
+                          "renderedFor":  [
+                                              "claude",
+                                              "codex (shared/codex-command-catalog.md)",
+                                              "kimi"
+                                          ]
+                      },
+                      {
+                          "name":  "research",
+                          "aliases":  [
+
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\research.md",
+                          "claudeOnly":  true,
+                          "renderedFor":  [
+                                              "claude"
+                                          ]
+                      },
+                      {
+                          "name":  "test",
+                          "aliases":  [
+
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\test.md",
+                          "claudeOnly":  false,
+                          "renderedFor":  [
+                                              "claude",
+                                              "codex (shared/codex-command-catalog.md)",
+                                              "kimi"
+                                          ]
+                      },
+                      {
+                          "name":  "tests",
+                          "aliases":  [
+
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\tests.md",
+                          "claudeOnly":  false,
+                          "renderedFor":  [
+                                              "claude",
+                                              "codex (shared/codex-command-catalog.md)",
+                                              "kimi"
+                                          ]
+                      },
+                      {
+                          "name":  "undock",
+                          "aliases":  [
+
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\undock.md",
+                          "claudeOnly":  false,
+                          "renderedFor":  [
+                                              "claude",
+                                              "codex (shared/codex-command-catalog.md)",
+                                              "kimi"
+                                          ]
+                      },
+                      {
+                          "name":  "unstuck",
+                          "aliases":  [
+
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\unstuck.md",
+                          "claudeOnly":  false,
+                          "renderedFor":  [
+                                              "claude",
+                                              "codex (shared/codex-command-catalog.md)",
+                                              "kimi"
+                                          ]
+                      }
+                  ]
 }

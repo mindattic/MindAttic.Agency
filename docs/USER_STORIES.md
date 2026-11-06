@@ -102,3 +102,18 @@ _Nothing recorded yet._
 | MAT-T79 | 2026-10-31 | chore | closed | Remove deploy-core.ps1: the user doesn't want Tickets, Launcher and Orchestrator deployed together; each is deployed on its own with its run.ps1 | aae4f93 |
 | MAT-T80 | 2026-10-31 | docs | closed | Update USER_STORIES.md | — |
 | MAT-T81 | 2026-11-01 | chore | closed | Workspace registry: pick up MindAttic.Ideas -> IdeaCms rename (command catalog, workspace-repos.json) | — |
+| MAT-T82 | 2026-11-02 | docs | open | codex-standard: adopt docs-site pipeline, publish README to GitHub Pages (HOUSE-LAW-14) -- its GitHub repo content is checked out at the D:\Projects\MindAttic workspace root, not a normal subfolder, so run adopt-docs-site.ps1 -Repo codex-standard from there by hand rather than via the tickets tool's --repo lookup | — |
+| MAT-T83 | 2026-11-02 | fix | closed | Bughunt sweep, two passes: find and fix real bugs across tracked source (user request 2026-11-02) | — |
+| MAT-T84 | 2026-11-02 | fix | closed | Bughunt sweep, two passes: workspace root repo (mindattic-agent-standard mirror etc.) (user request 2026-11-02) | — |
+| MAT-T85 | 2026-11-02 | chore | closed | Save the Bughunt Decision Queue artifact (2026-11-02 sweep's open decisions) to the workspace-root artifacts/ (HOUSE-LAW-12) | — |
+| MAT-T86 | 2026-11-02 | fix | closed | Fix the open items the 2026-11-02 bughunt left for decision (reconcile root mindattic-agent-standard vs Agency drift both ways, statusline worktree branch bug) | — |
+| MAT-T87 | 2026-11-03 | feature | open | Create new GitHub repo Unreal.Space: recreate the Sol system from Unity.Space (Unity.SpaceGod) in Unreal Engine | — |
+| MAT-T88 | 2026-11-03 | chore | open | Document the Unity.Rea.* run.ps1/run.bat deploy-script convention in mindattic-agent-standard/AGENTS.md | — |
+| MAT-T89 | 2026-11-05 | feature | closed | Per-member commands: /ryan, /honey, /erin, /jordan (generated from 'orchestrator org members') take a verb and a task, e.g. /ryan research "...", and start a CLI on that member's login in the current repo (orchestrator org start <repo> <who> --prompt); research files a ticket, extracts the open questions from the pasted text, writes docs/research/<Topic>.md with sources, commits, closes, notes the related tickets and messages the sending session | 176e235 (Agency), mirror sync |
+| MAT-T90 | 2026-11-05 | docs | closed | Agent standard: clean up after yourself - delete your own scratchpad build copies/snapshots and stop extra game players/builds when a task ends; respect orchestrator --disk-cleanup-gb; one heavy player/build at a time per machine | — |
+| MAT-T91 | 2026-11-05 | chore | open | Create new repo Mods.Mech5Mercs.CoopPartner (gh repo create, clone-repo.ps1, scaffold) | — |
+| MAT-T92 | 2026-11-05 | chore | closed | Sync AGENTS.md: the login hard-cutoff line now says 96% of the 5-hour window (lowered from 98%, M.ORCH-T1462) since the orchestrator can't predict an individual tool call's size before it runs | — |
+| MAT-T93 | 2026-11-06 | feature | open | CLI-agnostic capability framework: give Codex/Antigravity/Kimi full parity with Claude's abilities | — |
+| MAT-T94 | 2026-11-06 | chore | open | Bring pace-gate.py/context-gate.py/rl-check.py under version control and wire them identically across Claude/Codex/Kimi/agy | — |
+| MAT-T95 | 2026-11-06 | feature | open | Single-source ability catalog + per-CLI renderer: port Claude's 32 slash commands/skills so Codex, Kimi, and agy get them too | — |
+| MAT-T96 | 2026-11-06 | feature | open | Bootstrap Google Antigravity (agy) config and wire it into the shared standard (hooks, AGENTS.md discovery, abilities) | — |

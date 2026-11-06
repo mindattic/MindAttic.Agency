@@ -38,8 +38,8 @@ non-empty, lead **Task** with it.
 
 ## 3. Save it
 
-Run it from the current repo root with the PowerShell tool (single-quote the strings, doubling
-any `'` inside them):
+Run it from the current repo root with PowerShell (single-quote the strings, doubling any `'`
+inside them):
 
 ```powershell
 & <workspace-root>\mindattic-agent-standard\prose-agent.ps1 save -RepoRoot (Get-Location) `
