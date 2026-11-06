@@ -22,32 +22,60 @@
       by the existing shared\member-commands.ps1 generator (unchanged), which this script just
       makes sure still runs.
 
-    - Codex: as of this writing, no custom prompts/commands directory is confirmed for Codex CLI
-      (checked empirically: `codex --help` and `codex mcp --help` list no such option; Codex's
-      own extensibility is a plugin marketplace (`codex plugin ...`), not a markdown-prompt
-      folder; $CODEX_HOME\skills exists but holds only an internal `.system` cache, no
-      user-authored skill content; `codex features list` shows `plugins`/`plugin_sharing` as the
-      stable extensibility surface, nothing named for custom prompts). Codex DOES read AGENTS.md
-      natively and DOES support PreToolUse/Stop hooks ($CODEX_HOME\hooks.json, wired by MAT-T94).
-      So, per the ticket's own instructed fallback, portable (non claude-only) abilities are
-      rendered into one generated file, shared\codex-command-catalog.md, with plain-English
-      dispatch instructions; claude-only abilities are listed too, marked unavailable. This
-      script does NOT edit AGENTS.md (MAT-T95 leaves that pointer for a later pass) - add one
-      line to it by hand once: "Codex: shared/codex-command-catalog.md is the command catalog."
+    - Codex: no custom `/name args` slash-command PARSER is confirmed for Codex CLI - checked
+      empirically (`codex --help`, `codex mcp --help` list no such option; Codex's own
+      extensibility is a plugin marketplace (`codex plugin ...`), and a plugin's manifest
+      (`.codex-plugin/plugin.json`) only ever wraps the same three primitives: `skills` (model-
+      interpreted by description match, not harness-dispatched), `hooks` (lifecycle events, not
+      user commands) and `mcpServers` (real tool calls, but still invoked at the model's
+      judgment, never a literal user-typed `/name` the harness parses deterministically the way
+      Claude Code's own command files are). MAT-T98 built nothing as a plugin because of this:
+      a plugin would only be packaging overhead (marketplace.json, versioning, interface
+      metadata) around a mechanism already reachable directly (see next point) - the ticket's own
+      "don't force a heavyweight MCP-server plugin for marginal gain" guidance applies.
+      **CORRECTION (MAT-T98, supersedes MAT-T95's assumption above):** `$CODEX_HOME\skills` is
+      NOT limited to the internal `.system` cache - a plain `skills\<name>\SKILL.md` dropped
+      there directly (no plugin, no marketplace registration) IS auto-discovered and invoked,
+      confirmed empirically with an isolated scratch CODEX_HOME: a probe skill's description
+      ("use this whenever the user says 'run the probe'") was matched by a live `codex exec`
+      prompt, and Codex read the file itself (via its own exec/shell tool) and followed it. This
+      is the SAME shape and SAME tier of mechanism Kimi/agy already use below (model-interpreted
+      from a description, not a deterministic slash parser), but it is strictly better than
+      dumping the whole catalog into AGENTS.md as constant-cost inline text: it is selectively
+      surfaced per-skill and costs nothing in context until matched. So abilities are now
+      rendered BOTH ways: into `$CODEX_HOME\skills\<name>\SKILL.md` (mirroring the Kimi/agy
+      branches exactly - this is the real, working mechanism) AND into the single
+      `shared\codex-command-catalog.md` file referenced from AGENTS.md (kept as a human-readable
+      index of what exists and what's unavailable, and as the fallback for a Codex install old
+      enough that host skill discovery isn't present). Neither one is a true native "/name"
+      command parser; that still does not exist on Codex today. Claude-only abilities carrying a
+      `codex-equivalent`/`codex-equivalent-note` field (see shared/abilities/allocate.md,
+      research.md, member-contact.md) get that caveat rendered into the catalog instead of a flat
+      "unavailable" - a confirmed-possible, honestly-caveated path, never silently wired in as
+      production-ready. This script does NOT edit AGENTS.md's one-line pointer to the catalog
+      (left for a later pass, same as MAT-T95 left it).
 
     - Kimi: confirmed via Kimi's own docs (https://moonshotai.github.io/kimi-code/, Customization
       > Skills) that it auto-discovers user-level skills at $KIMI_CODE_HOME\skills (defaults to
       ~/.kimi-code/skills) and ~/.agents/skills, directory-per-skill with a SKILL.md whose
       frontmatter requires name + description - the same shape Claude's own Skill tool uses.
       Portable abilities are rendered to ~/.kimi-code/skills/<name>/SKILL.md; claude-only
-      abilities are skipped (they would not function there). CONFIRMED (MAT-T98, by direct test
-      against agy below - Kimi shares the identical model-activated-skill architecture, so this is
-      inferred by analogy, not independently tested on Kimi itself): a rendered skill's `$ARGUMENTS`
-      placeholder is NOT substituted by any harness before the model sees it. Kimi's docs describe
-      skills as invoked by the model "on demand" from their description, not via an explicit
-      `/name args` parser the way Claude commands are, so there is no substitution step to do it.
-      `$ARGUMENTS` in the rendered body is therefore rewritten to plain-English guidance ("the rest
-      of the user's own message") instead of being carried over literally and left dead.
+      abilities are skipped (they would not function there). CONFIRMED-WORKING FROM SOURCE
+      (MAT-T98, 2026-11-06 - reading the bundled JS inside Kimi Code's own executable,
+      ~/.kimi-code/bin/kimi.exe, the same binary-analysis technique MAT-T100 used on codex.exe):
+      Kimi genuinely substitutes `$ARGUMENTS` (plus `$ARGUMENTS[N]`, `$1`, and named `$NAME`
+      placeholders declared via an `arguments:` frontmatter field) with a real argument string
+      before the model ever sees the skill body - this is NOT the same architecture as agy below.
+      The call path is `renderSkillPrompt(skill, rawArgs)` ->
+      `expandSkillParameters(skill.content, rawArgs, {...})`, which does a literal
+      `body.replaceAll("$ARGUMENTS", args)` (and appends a trailing `ARGUMENTS: <args>` line if the
+      body has no placeholder at all); Kimi's own in-binary docstring says this placeholder syntax
+      "is modelled after common conventions" - i.e. deliberately Claude-slash-command-compatible.
+      `rawArgs` comes from whatever text follows an explicit `/name args` invocation, or from an
+      explicit `args` string the model supplies when it chooses to invoke a skill on its own (the
+      model-facing tool schema explicitly instructs it to pass the relevant text and "omit it only
+      when there is nothing to pass"). So the rendered body keeps `$ARGUMENTS` literal, exactly like
+      the Claude branch above - no rewrite needed or applied here.
 
     - agy: confirmed by MAT-T96 by actually running `agy -p "..."` once in a throwaway scratch
       directory and inspecting what appeared on disk. agy (Google Antigravity CLI) is NOT at
@@ -106,21 +134,24 @@ $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 
 function Get-Md5([string]$path) { (Get-FileHash -LiteralPath $path -Algorithm MD5).Hash.ToLowerInvariant() }
 
-# ── Model-activated CLIs (Kimi, agy) have no harness that substitutes $ARGUMENTS ────────────────
+# ── agy has no harness that substitutes $ARGUMENTS (Kimi is different - see its own branch below) ──
 # CONFIRMED (MAT-T98, direct test against agy): a rendered skill's literal `$ARGUMENTS` token is
 # NOT substituted before the model sees it - a probe skill asked to quote its own instruction text
 # verbatim reported the five characters "$ARGUMENTS" still present, unreplaced, in its own context.
 # A separate probe did correctly answer using the user's typed argument text - but only because the
 # model read it directly out of the user's own conversational message, not because the placeholder
 # was filled in. Leaving a literal, never-substituted `$ARGUMENTS` token in a rendered skill body is
-# useless noise for these CLIs, so it's rewritten to plain-English guidance instead. Kimi shares the
-# same model-activated-skill architecture (per render-abilities.ps1's own long-standing Kimi notes
-# below) so the same rewrite is applied there too - inferred by analogy, not independently tested.
-$nonClaudeArgNote = 'Note: this skill is activated by the model matching its description to the ' +
+# useless noise for agy, so it's rewritten to plain-English guidance instead. NOTE (MAT-T98,
+# 2026-11-06): Kimi was previously assumed to share this same no-substitution architecture "by
+# analogy" - that assumption was wrong. Reading Kimi Code's own bundled JS source
+# (~/.kimi-code/bin/kimi.exe) found a real `expandSkillParameters`/`renderSkillPrompt` substitution
+# path that does replace `$ARGUMENTS` with real argument text, so Kimi's own branch below does NOT
+# use this rewrite - only agy does.
+$agyArgNote = 'Note: this skill is activated by the model matching its description to the ' +
     'conversation, not by a slash-command harness - nothing here is pre-filled for you. Wherever ' +
     "this skill's text below refers to 'the rest of the user's own message', read it yourself " +
     'directly from what the user actually typed in this conversation.'
-function ConvertTo-ModelActivatedText([string]$text) {
+function ConvertTo-AgyModelActivatedText([string]$text) {
     return $text.Replace('$ARGUMENTS', "the rest of the user's own message")
 }
 
@@ -285,6 +316,10 @@ Write-Output '       line to it by hand, e.g. "Codex: see mindattic-agent-standa
 # Kimi: confirmed via https://moonshotai.github.io/kimi-code/en/customization/skills - user-level
 # auto-discovery at $KIMI_CODE_HOME\skills (default ~/.kimi-code/skills), directory-per-skill with
 # SKILL.md (name + description required) - the same shape Claude's own Skill tool uses.
+# $ARGUMENTS is kept LITERAL here (unlike the agy branch below) - CONFIRMED-WORKING FROM SOURCE
+# (MAT-T98, 2026-11-06): Kimi's own bundled JS (~/.kimi-code/bin/kimi.exe) genuinely substitutes
+# `$ARGUMENTS`/`$1`/`$NAME` with real argument text via `expandSkillParameters`/`renderSkillPrompt`
+# before the model sees the body - see the script header for the full source citation.
 # =================================================================================================
 if (Test-Path -LiteralPath $KimiHome) {
     $kimiSkillsDir = Join-Path $KimiHome 'skills'
@@ -294,11 +329,10 @@ if (Test-Path -LiteralPath $KimiHome) {
         $dir = Join-Path $kimiSkillsDir $a.Name
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
         $descBits = [System.Collections.Generic.List[string]]::new()
-        $descBits.Add(((ConvertTo-ModelActivatedText $a.Description) -replace '"', '\"'))
+        $descBits.Add(($a.Description -replace '"', '\"'))
         if ($a.ArgumentHint) { $descBits.Add("Argument hint: $($a.ArgumentHint).") }
         if ($a.Aliases.Count -gt 0) { $descBits.Add('Also invoked as: ' + (($a.Aliases | ForEach-Object { "/$_" }) -join ', ') + '.') }
-        $bodyText = ConvertTo-ModelActivatedText ($a.Body.Trim())
-        if ($a.Body.Contains('$ARGUMENTS')) { $bodyText = $nonClaudeArgNote + "`n`n" + $bodyText }
+        $bodyText = $a.Body.Trim()
         $skill = '---' + "`n" + "name: $($a.Name)" + "`n" + 'description: "' + ($descBits -join ' ') + '"' + "`n" + '---' + "`n`n" + $bodyText + "`n"
         $dest = Join-Path $dir 'SKILL.md'
         $renderedKimi.Add($a.Name)
@@ -312,9 +346,9 @@ if (Test-Path -LiteralPath $KimiHome) {
             Write-Output "kimi: ~/.kimi-code/skills/$($d.Name)/SKILL.md is no longer produced by any portable ability - left alone (remove by hand if stale)"
         }
     }
-    Write-Output 'kimi: NOTE - $ARGUMENTS is rewritten to plain-English guidance in rendered bodies (MAT-T98),'
-    Write-Output '      since agy was directly confirmed not to substitute it and Kimi shares the same'
-    Write-Output '      model-activated-skill architecture (inferred by analogy, not independently tested).'
+    Write-Output 'kimi: NOTE - CONFIRMED-WORKING FROM SOURCE (MAT-T98): Kimi genuinely substitutes $ARGUMENTS'
+    Write-Output '      with real argument text (see ~/.kimi-code/bin/kimi.exe source analysis in docs/'
+    Write-Output '      hook-contract-matrix.md), so the literal placeholder is kept as-is - no rewrite.'
 } else {
     Write-Output "kimi: $KimiHome not found - skipping (pass -KimiHome, or install Kimi Code, to render here)"
 }
@@ -332,11 +366,11 @@ if (Test-Path -LiteralPath $AgyHome) {
         $dir = Join-Path $agySkillsDir $a.Name
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
         $descBits = [System.Collections.Generic.List[string]]::new()
-        $descBits.Add(((ConvertTo-ModelActivatedText $a.Description) -replace '"', '\"'))
+        $descBits.Add(((ConvertTo-AgyModelActivatedText $a.Description) -replace '"', '\"'))
         if ($a.ArgumentHint) { $descBits.Add("Argument hint: $($a.ArgumentHint).") }
         if ($a.Aliases.Count -gt 0) { $descBits.Add('Also invoked as: ' + (($a.Aliases | ForEach-Object { "/$_" }) -join ', ') + '.') }
-        $bodyText = ConvertTo-ModelActivatedText ($a.Body.Trim())
-        if ($a.Body.Contains('$ARGUMENTS')) { $bodyText = $nonClaudeArgNote + "`n`n" + $bodyText }
+        $bodyText = ConvertTo-AgyModelActivatedText ($a.Body.Trim())
+        if ($a.Body.Contains('$ARGUMENTS')) { $bodyText = $agyArgNote + "`n`n" + $bodyText }
         $skill = '---' + "`n" + "name: $($a.Name)" + "`n" + 'description: "' + ($descBits -join ' ') + '"' + "`n" + '---' + "`n`n" + $bodyText + "`n"
         $dest = Join-Path $dir 'SKILL.md'
         $renderedAgy.Add($a.Name)
