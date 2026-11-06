@@ -5,7 +5,9 @@ Per-CLI confirmed/unverified behavior for the shared lifecycle hooks
 section per CLI. Claude, Codex and Kimi rows below were filled in by MAT-T94; the agy section was
 started by MAT-T96 and extended by MAT-T99 (deny enforcement, SessionStart/PreInvocation/
 PostInvocation, project-local discovery); the Codex section's `SubagentStart`/`SubagentStop`/
-`Notification` rows were filled in by MAT-T100.
+`Notification` rows were filled in by MAT-T100. MAT-T98 separately settled whether a rendered
+skill's `$ARGUMENTS` placeholder is substituted by agy (see the agy section below) - that's a
+skill-authoring question, not one of the lifecycle hooks this table tracks, so it isn't a table row.
 
 ## Summary table
 
@@ -290,9 +292,50 @@ neither of which exists):**
 - Whether `pace-gate.py`'s real pacing/slot-holding logic (not just its current no-op fast path)
   would behave correctly if it were ever taught to recognize agy's payload shape - only the no-op
   path was exercised.
-- Whether a rendered skill's `$ARGUMENTS` placeholder is substituted the way a Claude slash
-  command's is, or whether agy's model-activated skills receive raw arguments some other way (same
-  open question `render-abilities.ps1` already notes for the Kimi branch).
+
+**CONFIRMED (added by MAT-T98, 2026-11-06): no harness substitution of a skill's `$ARGUMENTS`
+placeholder - the model infers the argument from the user's own message instead.**
+
+- Tested directly against a real `agy -p` invocation (not inferred): a disposable probe skill was
+  written to `~/.gemini/config/skills/argprobe/SKILL.md` (frontmatter `description` told the model
+  to activate it whenever the user's message starts with the word `argprobe`) with a body containing
+  a literal `$ARGUMENTS` token, the same way a Claude slash command's body would.
+- **First probe** - body: "respond with the exact phrase MAT-98-ARG-PROBE followed immediately by
+  whatever arguments were given ... MAT-98-ARG-PROBE $ARGUMENTS". Run as
+  `agy -p "argprobe hello-world-123"` from a throwaway scratch directory (no project `.agents/`
+  folder, so only the global skill applied). Output: exactly `MAT-98-ARG-PROBE hello-world-123` -
+  the right answer, but this alone doesn't distinguish harness substitution from the model simply
+  reading "hello-world-123" out of its own conversation context.
+- **Second probe (the one that settles it)** - rewrote the body to ask the model to stop answering
+  the user's request and instead quote back, character-for-character, the literal 30 characters of
+  its own instruction text immediately surrounding a `TOKEN-START[$ARGUMENTS]TOKEN-END` marker, then
+  say `LITERAL` if the five characters `$ARGUMENTS` were still literally present there or `REPLACED`
+  if something else (e.g. actual argument text) appeared instead. Run as
+  `agy -p "argprobe zzz-canary-998877"`. Output:
+  ```
+  TOKEN-START[$ARGUMENTS]TOKEN-END
+  LITERAL
+  ```
+  The model's own context still contained the raw, unreplaced `$ARGUMENTS` string - `zzz-canary-998877`
+  never appeared in the skill body itself at all, confirming no harness ever touched it.
+- Conclusion: agy's skills are purely model-activated context, exactly as `BANANA-PROBE-77` (MAT-T96)
+  already proved for activation-without-arguments. There is no slash-command-style harness expansion
+  of `$ARGUMENTS` before the model sees a skill body (unlike Claude Code, where the harness expands
+  it before the model's turn even starts). When the first probe worked, it worked because the model
+  read the trailing text of the user's own prompt and connected it to "whatever arguments were
+  given" by itself - not because anything was substituted into the skill text. This is the same
+  category difference the ticket anticipated: Kimi's skills are architecturally identical
+  (model-activated, same SKILL.md shape), so the same conclusion almost certainly holds there too,
+  but that remains **inferred by analogy, not independently tested** - no funded/logged-in Kimi
+  account was available to repeat this probe directly (see the Kimi section above).
+- Probe skill removed from the live `~/.gemini/config/skills/` catalog afterward; it never shipped
+  as a real ability.
+- `render-abilities.ps1`'s Kimi and agy branches were updated as a result: a rendered skill body no
+  longer carries a literal, never-substituted `$ARGUMENTS` token. It's rewritten to the plain-English
+  phrase "the rest of the user's own message" (readable by a model with no harness expansion in
+  play), with a short note prepended to any skill whose body actually used `$ARGUMENTS` explaining
+  that there's no substitution mechanism on these CLIs and the model should read the argument
+  directly from the conversation itself.
 
 **CONFIRMED-NOT-SUPPORTED:**
 

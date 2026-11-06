@@ -40,12 +40,14 @@
       ~/.kimi-code/skills) and ~/.agents/skills, directory-per-skill with a SKILL.md whose
       frontmatter requires name + description - the same shape Claude's own Skill tool uses.
       Portable abilities are rendered to ~/.kimi-code/skills/<name>/SKILL.md; claude-only
-      abilities are skipped (they would not function there). UNVERIFIED: whether a Kimi skill's
-      body receives `$ARGUMENTS` the same way a Claude slash command does - Kimi's docs describe
-      skills as invoked by the model "on demand" from their description, not necessarily via an
-      explicit `/name args` the way Claude commands are. Treat the `$ARGUMENTS` placeholders in
-      the rendered bodies as an assumption carried over from the Claude source, not a confirmed
-      Kimi mechanism.
+      abilities are skipped (they would not function there). CONFIRMED (MAT-T98, by direct test
+      against agy below - Kimi shares the identical model-activated-skill architecture, so this is
+      inferred by analogy, not independently tested on Kimi itself): a rendered skill's `$ARGUMENTS`
+      placeholder is NOT substituted by any harness before the model sees it. Kimi's docs describe
+      skills as invoked by the model "on demand" from their description, not via an explicit
+      `/name args` parser the way Claude commands are, so there is no substitution step to do it.
+      `$ARGUMENTS` in the rendered body is therefore rewritten to plain-English guidance ("the rest
+      of the user's own message") instead of being carried over literally and left dead.
 
     - agy: confirmed by MAT-T96 by actually running `agy -p "..."` once in a throwaway scratch
       directory and inspecting what appeared on disk. agy (Google Antigravity CLI) is NOT at
@@ -56,9 +58,16 @@
       frontmatter - confirmed live (a throwaway probe skill with a secret-phrase instruction was
       picked up and triggered by a matching `agy -p` prompt). So portable (non claude-only, non
       template) abilities are rendered to `~/.gemini/config/skills/<name>/SKILL.md`, exactly like
-      the Kimi branch below. UNVERIFIED, same caveat as Kimi: whether `$ARGUMENTS` in the rendered
-      body is honored the way a Claude slash command's is, since agy's skills are model-activated
-      from their description rather than explicitly invoked as `/name args`.
+      the Kimi branch below. CONFIRMED (MAT-T98) by directly testing a disposable probe skill
+      against `agy -p`: `$ARGUMENTS` in the rendered body is NOT substituted by any harness before
+      the model sees it - a probe skill asked to quote its own instruction text verbatim reported
+      the literal five characters `$ARGUMENTS` still present, unreplaced, in its own context. A
+      separate probe did correctly pick up the user's typed argument text, but only because the
+      model read it directly out of the user's own conversational message (agy's skills are
+      model-activated from their description, not invoked as an explicit `/name args` the way
+      Claude commands are - there is no slash-command parser to substitute anything). So
+      `$ARGUMENTS` is rewritten to plain-English guidance in the rendered body instead of being
+      left as dead, never-substituted text.
 
 .PARAMETER WorkspaceRoot
     The MindAttic workspace root. Defaults to this script's own parent's parent, same convention
@@ -96,6 +105,24 @@ $utf8 = New-Object System.Text.UTF8Encoding $false
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 
 function Get-Md5([string]$path) { (Get-FileHash -LiteralPath $path -Algorithm MD5).Hash.ToLowerInvariant() }
+
+# ── Model-activated CLIs (Kimi, agy) have no harness that substitutes $ARGUMENTS ────────────────
+# CONFIRMED (MAT-T98, direct test against agy): a rendered skill's literal `$ARGUMENTS` token is
+# NOT substituted before the model sees it - a probe skill asked to quote its own instruction text
+# verbatim reported the five characters "$ARGUMENTS" still present, unreplaced, in its own context.
+# A separate probe did correctly answer using the user's typed argument text - but only because the
+# model read it directly out of the user's own conversational message, not because the placeholder
+# was filled in. Leaving a literal, never-substituted `$ARGUMENTS` token in a rendered skill body is
+# useless noise for these CLIs, so it's rewritten to plain-English guidance instead. Kimi shares the
+# same model-activated-skill architecture (per render-abilities.ps1's own long-standing Kimi notes
+# below) so the same rewrite is applied there too - inferred by analogy, not independently tested.
+$nonClaudeArgNote = 'Note: this skill is activated by the model matching its description to the ' +
+    'conversation, not by a slash-command harness - nothing here is pre-filled for you. Wherever ' +
+    "this skill's text below refers to 'the rest of the user's own message', read it yourself " +
+    'directly from what the user actually typed in this conversation.'
+function ConvertTo-ModelActivatedText([string]$text) {
+    return $text.Replace('$ARGUMENTS', "the rest of the user's own message")
+}
 
 # ── Parse a shared/abilities/<name>.md file into a structured object ────────────────────────────
 # Not full YAML - just enough for this flat, one-value-per-line frontmatter shape.
@@ -267,10 +294,12 @@ if (Test-Path -LiteralPath $KimiHome) {
         $dir = Join-Path $kimiSkillsDir $a.Name
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
         $descBits = [System.Collections.Generic.List[string]]::new()
-        $descBits.Add(($a.Description -replace '"', '\"'))
+        $descBits.Add(((ConvertTo-ModelActivatedText $a.Description) -replace '"', '\"'))
         if ($a.ArgumentHint) { $descBits.Add("Argument hint: $($a.ArgumentHint).") }
         if ($a.Aliases.Count -gt 0) { $descBits.Add('Also invoked as: ' + (($a.Aliases | ForEach-Object { "/$_" }) -join ', ') + '.') }
-        $skill = '---' + "`n" + "name: $($a.Name)" + "`n" + 'description: "' + ($descBits -join ' ') + '"' + "`n" + '---' + "`n`n" + $a.Body.Trim() + "`n"
+        $bodyText = ConvertTo-ModelActivatedText ($a.Body.Trim())
+        if ($a.Body.Contains('$ARGUMENTS')) { $bodyText = $nonClaudeArgNote + "`n`n" + $bodyText }
+        $skill = '---' + "`n" + "name: $($a.Name)" + "`n" + 'description: "' + ($descBits -join ' ') + '"' + "`n" + '---' + "`n`n" + $bodyText + "`n"
         $dest = Join-Path $dir 'SKILL.md'
         $renderedKimi.Add($a.Name)
         if ((Test-Path -LiteralPath $dest) -and ([IO.File]::ReadAllText($dest) -eq $skill)) { continue }
@@ -283,8 +312,9 @@ if (Test-Path -LiteralPath $KimiHome) {
             Write-Output "kimi: ~/.kimi-code/skills/$($d.Name)/SKILL.md is no longer produced by any portable ability - left alone (remove by hand if stale)"
         }
     }
-    Write-Output 'kimi: NOTE - unverified whether a Kimi skill body receives $ARGUMENTS the way a Claude command'
-    Write-Output '      does; the rendered bodies carry that placeholder over from the Claude source as-is.'
+    Write-Output 'kimi: NOTE - $ARGUMENTS is rewritten to plain-English guidance in rendered bodies (MAT-T98),'
+    Write-Output '      since agy was directly confirmed not to substitute it and Kimi shares the same'
+    Write-Output '      model-activated-skill architecture (inferred by analogy, not independently tested).'
 } else {
     Write-Output "kimi: $KimiHome not found - skipping (pass -KimiHome, or install Kimi Code, to render here)"
 }
@@ -302,10 +332,12 @@ if (Test-Path -LiteralPath $AgyHome) {
         $dir = Join-Path $agySkillsDir $a.Name
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
         $descBits = [System.Collections.Generic.List[string]]::new()
-        $descBits.Add(($a.Description -replace '"', '\"'))
+        $descBits.Add(((ConvertTo-ModelActivatedText $a.Description) -replace '"', '\"'))
         if ($a.ArgumentHint) { $descBits.Add("Argument hint: $($a.ArgumentHint).") }
         if ($a.Aliases.Count -gt 0) { $descBits.Add('Also invoked as: ' + (($a.Aliases | ForEach-Object { "/$_" }) -join ', ') + '.') }
-        $skill = '---' + "`n" + "name: $($a.Name)" + "`n" + 'description: "' + ($descBits -join ' ') + '"' + "`n" + '---' + "`n`n" + $a.Body.Trim() + "`n"
+        $bodyText = ConvertTo-ModelActivatedText ($a.Body.Trim())
+        if ($a.Body.Contains('$ARGUMENTS')) { $bodyText = $nonClaudeArgNote + "`n`n" + $bodyText }
+        $skill = '---' + "`n" + "name: $($a.Name)" + "`n" + 'description: "' + ($descBits -join ' ') + '"' + "`n" + '---' + "`n`n" + $bodyText + "`n"
         $dest = Join-Path $dir 'SKILL.md'
         $renderedAgy.Add($a.Name)
         if ((Test-Path -LiteralPath $dest) -and ([IO.File]::ReadAllText($dest) -eq $skill)) { continue }
@@ -318,8 +350,9 @@ if (Test-Path -LiteralPath $AgyHome) {
             Write-Output "agy: ~/.gemini/config/skills/$($d.Name)/SKILL.md is no longer produced by any portable ability - left alone (remove by hand if stale)"
         }
     }
-    Write-Output 'agy: NOTE - unverified whether an agy skill body receives $ARGUMENTS the way a Claude command'
-    Write-Output '     does; the rendered bodies carry that placeholder over from the Claude source as-is.'
+    Write-Output 'agy: NOTE - CONFIRMED (MAT-T98): agy does not substitute $ARGUMENTS before the model sees'
+    Write-Output '     it (model-activated skill, not a harness-parsed slash command). Rendered bodies rewrite'
+    Write-Output '     the placeholder to plain-English guidance instead of leaving dead, never-substituted text.'
 } else {
     Write-Output "agy: $AgyHome not found - skipping (pass -AgyHome, or run agy once, to render here)"
 }
