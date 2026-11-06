@@ -2,8 +2,9 @@
 
 Per-CLI confirmed/unverified behavior for the shared lifecycle hooks
 (`shared/hooks/pace-gate.py`, `shared/hooks/context-gate.py`, `shared/hooks/rl-check.py`), one
-section per CLI. Claude, Codex and Kimi rows below were filled in by MAT-T94; the agy section
-further down is MAT-T96's and is left as-is.
+section per CLI. Claude, Codex and Kimi rows below were filled in by MAT-T94; the agy section was
+started by MAT-T96 and extended by MAT-T99 (deny enforcement, SessionStart/PreInvocation/
+PostInvocation, project-local discovery).
 
 ## Summary table
 
@@ -15,10 +16,12 @@ confirmed and its caveats - this table is a locator, not the full story.
 
 | Hook event | Claude | Codex | Kimi | agy |
 |---|---|---|---|---|
-| PreToolUse | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED |
+| PreToolUse (deny actually blocks) | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | CONFIRMED-WORKING |
 | PostToolUse | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED |
 | Stop | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | CONFIRMED-WORKING |
-| SessionStart | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED |
+| SessionStart | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | CONFIRMED-WORKING |
+| PreInvocation / PostInvocation (agy-only events) | n/a | n/a | n/a | CONFIRMED-WORKING |
+| Project-local discovery (`.agents/` for agy) | n/a | n/a | n/a | CONFIRMED-WORKING |
 | UserPromptSubmit | CONFIRMED-WORKING | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED |
 | SubagentStart | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED | UNVERIFIED |
 | SubagentStop | CONFIRMED-WORKING | UNVERIFIED | UNVERIFIED | UNVERIFIED |
@@ -217,17 +220,28 @@ neither of which exists):**
   (`"command": "python D:/.../pace-gate.py"`) works, since the shared/hooks path has no spaces.
   Keep agy's hook commands unquoted as long as that holds.
 
+**CONFIRMED-WORKING (added by MAT-T99, 2026-11-06):**
+
+- **`PreToolUse` `{"decision": "deny", "reason": "..."}` genuinely blocks a real agy tool call
+  end-to-end.** A disposable unconditional-deny hook (unquoted command, per the GOTCHA above) was
+  wired into the real `~/.gemini/config/hooks.json`; `agy -p "Run the shell command: echo
+  should-be-blocked"` returned "The command execution was blocked by a pre-tool hook: tool call
+  denied by pre-tool hook: MAT-T99-PROBE-DENY" - not a silent ignore. The probe's own marker file
+  independently confirmed the hook ran, carrying the documented `toolCall.name` /
+  `toolCall.args.CommandLine` / `conversationId` payload shape. The real `pace-gate.py`/
+  `context-gate.py agy` wiring was backed up before this edit and restored + byte-diff-verified
+  identical afterward.
+- `SessionStart`, `PreInvocation`, `PostInvocation` all fired on a single plain prompt, each with
+  the exact flat-array, no-matcher payload shape agy's own `hooks.md` documents.
+- Project-local `.agents/hooks.json` discovery works the same as the global `~/.gemini/config/`
+  root: a scratch directory's `.agents/hooks.json` `SessionStart` hook fired when agy was run with
+  that directory as cwd.
+
 **UNVERIFIED:**
 
 - Whether `pace-gate.py`'s real pacing/slot-holding logic (not just its current no-op fast path)
   would behave correctly if it were ever taught to recognize agy's payload shape - only the no-op
   path was exercised.
-- Whether a `PreToolUse` hook's `"decision": "deny"` / `"ask"` actually blocks an agy tool call
-  end-to-end - only the default (no hook output / implicit allow) path was exercised.
-- `SessionStart`, `PreInvocation`, `PostInvocation` events (unused by the Claude/Codex wiring) -
-  not exercised at all here.
-- Whether `.agents/` project-local discovery (as opposed to the global `~/.gemini/config/` root
-  used throughout this work) behaves identically.
 - Whether a rendered skill's `$ARGUMENTS` placeholder is substituted the way a Claude slash
   command's is, or whether agy's model-activated skills receive raw arguments some other way (same
   open question `render-abilities.ps1` already notes for the Kimi branch).
