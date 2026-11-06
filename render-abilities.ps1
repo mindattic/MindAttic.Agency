@@ -47,13 +47,18 @@
       the rendered bodies as an assumption carried over from the Claude source, not a confirmed
       Kimi mechanism.
 
-    - agy: MAT-T96 is bootstrapping agy's config directory concurrently; it does not exist on
-      this machine yet. This script checks for $AgyHome and no-ops cleanly with a note when it's
-      missing, rather than erroring. TODO (MAT-T96): once ~/.agy (or wherever its config lands)
-      exists, confirm its REAL command/skill convention before extending the agy branch below -
-      agy.exe's own strings reference AGENTS.md/hooks.json/settings.json, suggesting high overlap
-      with Claude's conventions, but that is an assumption, not something this script has
-      verified against an actual agy config directory.
+    - agy: confirmed by MAT-T96 by actually running `agy -p "..."` once in a throwaway scratch
+      directory and inspecting what appeared on disk. agy (Google Antigravity CLI) is NOT at
+      `~/.agy`/`~/.antigravity` (neither exists) - its real machine-wide customization root is
+      **`~/.gemini/config/`** (agy's own built-in docs call this "Global Configuration
+      (Machine-Local)"; it's the same root that already holds `mcp_config.json`). Skills there
+      follow the identical shape Kimi uses: `skills/<name>/SKILL.md` with `name` + `description`
+      frontmatter - confirmed live (a throwaway probe skill with a secret-phrase instruction was
+      picked up and triggered by a matching `agy -p` prompt). So portable (non claude-only, non
+      template) abilities are rendered to `~/.gemini/config/skills/<name>/SKILL.md`, exactly like
+      the Kimi branch below. UNVERIFIED, same caveat as Kimi: whether `$ARGUMENTS` in the rendered
+      body is honored the way a Claude slash command's is, since agy's skills are model-activated
+      from their description rather than explicitly invoked as `/name args`.
 
 .PARAMETER WorkspaceRoot
     The MindAttic workspace root. Defaults to this script's own parent's parent, same convention
@@ -67,8 +72,9 @@
     no-ops (with a message) if this folder doesn't exist.
 
 .PARAMETER AgyHome
-    agy's config folder. Defaults to ~/.agy. Rendering into it no-ops (with a message) until
-    MAT-T96 creates this folder and its real shape is confirmed.
+    agy's (Google Antigravity CLI) global customization root. Defaults to ~/.gemini/config
+    (confirmed by MAT-T96 - NOT ~/.agy, which doesn't exist). Rendering into it no-ops (with a
+    message) if this folder doesn't exist.
 
 .PARAMETER WhatIf
     Report what would change; change nothing.
@@ -78,7 +84,7 @@ param(
     [string]$WorkspaceRoot,
     [string]$GlobalClaudeRoot = "$env:USERPROFILE\.claude",
     [string]$KimiHome = "$env:USERPROFILE\.kimi-code",
-    [string]$AgyHome = "$env:USERPROFILE\.agy",
+    [string]$AgyHome = "$env:USERPROFILE\.gemini\config",
     [switch]$WhatIf
 )
 
@@ -284,19 +290,38 @@ if (Test-Path -LiteralPath $KimiHome) {
 }
 
 # =================================================================================================
-# agy: MAT-T96 is bootstrapping ~/.agy concurrently; it does not exist on this machine yet. No-op
-# cleanly rather than erroring. See the header comment for what MAT-T96 needs to confirm.
+# agy (Google Antigravity CLI): confirmed by MAT-T96 - global customization root is
+# ~/.gemini/config (NOT ~/.agy), skills live at skills/<name>/SKILL.md there, identical shape to
+# Kimi's. Mirrors the Kimi branch above.
 # =================================================================================================
 if (Test-Path -LiteralPath $AgyHome) {
-    Write-Output "agy: $AgyHome exists, but render-abilities.ps1 does not yet know agy's confirmed command/skill"
-    Write-Output '     convention (MAT-T96) - no abilities rendered. Extend the agy branch of this script once'
-    Write-Output '     MAT-T96 documents the real shape (its own AGENTS.md/hooks.json/settings.json, or whatever'
-    Write-Output '     it actually turns out to be).'
+    $agySkillsDir = Join-Path $AgyHome 'skills'
+    New-Item -ItemType Directory -Force -Path $agySkillsDir | Out-Null
+    $renderedAgy = [System.Collections.Generic.List[string]]::new()
+    foreach ($a in ($abilities | Where-Object { -not $_.Template -and -not $_.ClaudeOnly })) {
+        $dir = Join-Path $agySkillsDir $a.Name
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+        $descBits = [System.Collections.Generic.List[string]]::new()
+        $descBits.Add(($a.Description -replace '"', '\"'))
+        if ($a.ArgumentHint) { $descBits.Add("Argument hint: $($a.ArgumentHint).") }
+        if ($a.Aliases.Count -gt 0) { $descBits.Add('Also invoked as: ' + (($a.Aliases | ForEach-Object { "/$_" }) -join ', ') + '.') }
+        $skill = '---' + "`n" + "name: $($a.Name)" + "`n" + 'description: "' + ($descBits -join ' ') + '"' + "`n" + '---' + "`n`n" + $a.Body.Trim() + "`n"
+        $dest = Join-Path $dir 'SKILL.md'
+        $renderedAgy.Add($a.Name)
+        if ((Test-Path -LiteralPath $dest) -and ([IO.File]::ReadAllText($dest) -eq $skill)) { continue }
+        Write-Output "agy: ~/.gemini/config/skills/$($a.Name)/SKILL.md <- shared/abilities/$($a.Name).md"
+        if (-not $WhatIf) { [IO.File]::WriteAllText($dest, $skill, $utf8) }
+    }
+    foreach ($d in Get-ChildItem -LiteralPath $agySkillsDir -Directory -ErrorAction SilentlyContinue) {
+        if ($renderedAgy -contains $d.Name) { continue }
+        if (Test-Path -LiteralPath (Join-Path $d.FullName 'SKILL.md')) {
+            Write-Output "agy: ~/.gemini/config/skills/$($d.Name)/SKILL.md is no longer produced by any portable ability - left alone (remove by hand if stale)"
+        }
+    }
+    Write-Output 'agy: NOTE - unverified whether an agy skill body receives $ARGUMENTS the way a Claude command'
+    Write-Output '     does; the rendered bodies carry that placeholder over from the Claude source as-is.'
 } else {
-    Write-Output "agy: $AgyHome not found yet (MAT-T96 not landed) - skipping cleanly."
-    Write-Output '     TODO for MAT-T96: once agy''s config directory is confirmed, extend this script''s agy'
-    Write-Output '     branch to render shared/abilities/*.md (excluding claude-only ones) into it, the same'
-    Write-Output '     way the Kimi branch above renders into ~/.kimi-code/skills.'
+    Write-Output "agy: $AgyHome not found - skipping (pass -AgyHome, or run agy once, to render here)"
 }
 
 if ($WhatIf) { Write-Output 'WhatIf: nothing was changed.' }

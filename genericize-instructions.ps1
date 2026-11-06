@@ -3,7 +3,7 @@ param([string]$WorkspaceRoot,[string]$ArchivePath)
 $ErrorActionPreference='Stop'
 if ([string]::IsNullOrWhiteSpace($WorkspaceRoot)) { $WorkspaceRoot = Split-Path -Parent $PSScriptRoot }
 if ([string]::IsNullOrWhiteSpace($ArchivePath)) { $ArchivePath = Join-Path $PSScriptRoot 'legacy-instructions' }
-$names=@('CLAUDE.md','CODEX.md','GEMINI.md','KIMI.md','DEEPSEEK.md','MISTRAL.md','LLAMA.md','COPILOT.md','AI.md')
+$names=@('CLAUDE.md','CODEX.md','GEMINI.md','KIMI.md','DEEPSEEK.md','MISTRAL.md','LLAMA.md','COPILOT.md','AI.md','AGY.md')
 $files=Get-ChildItem $WorkspaceRoot -Recurse -File -Force -ErrorAction SilentlyContinue |
   Where-Object {$names -contains $_.Name -and $_.FullName -notmatch '\\(node_modules|PackageCache|\.git|mindattic-agent-standard|codex-standard)\\'}
 New-Item -ItemType Directory -Path $ArchivePath -Force | Out-Null
