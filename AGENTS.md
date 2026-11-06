@@ -114,7 +114,7 @@ and resume on your own:
   minute or two and finishes once it no longer says `Cooling off` or `ahead of`; then pick the
   work back up where it stopped, without being asked. At or past the hard 5-hour stop, schedule the
   resume for the window's reset (plus about two minutes) instead.
-- **Keep each login at or under 98% of its 5-hour window.** That is the hard cutoff; the wait above
+- **Keep each login at or under 96% of its 5-hour window.** That is the hard cutoff; the wait above
   exists so a login never runs past it.
 - **Ramp subagents up gradually: 3-4 at once, then more as the note allows.** The pacer's forecast
   is rate-based, so a burst of new subagents spikes the rate and overshoots the line before the
