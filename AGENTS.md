@@ -58,10 +58,21 @@ to every CLI's own convention, rather than hand-maintained per provider:
   frontmatter, rendered as a distinct caveated note rather than silently enabled), while `/research`
   and the `member-contact` template's cross-login `SendMessage` use is architecturally a different,
   still-unbridged gap even though Codex has its own `spawn_agent`/`codex agents` concepts (see
-  docs/hook-contract-matrix.md's "`claude-only` abilities" section for exactly why). `ScheduleWakeup`
-  and `Artifact` (Claude.ai-hosted publishing) remain genuinely Claude-only with no plausible
-  Codex/Kimi/agy equivalent. `shared/commands/*.md` is a **render target**, not a source — don't
-  hand-edit it.
+  docs/hook-contract-matrix.md's "`claude-only` abilities" section for exactly why). MAT-T103 dug
+  further into `/research`/`member-contact` and `Artifact` specifically — full, precise verdicts in
+  **docs/claude-only-abilities.md**. Short version: `/research`'s cross-login half is Claude-only for
+  a more fundamental reason than `SendMessage` alone — `orchestrator org start` always starts a
+  Claude session (`MindAttic.Orchestrator`'s per-member login system, `AccountDirs`, only models
+  Claude accounts; its own `--account` path explicitly refuses any other provider), so there is no
+  cross-CLI "the work gets done on another login" path to begin with yet (confirmed from source, not
+  assumed) — but the final "the asker finds out" step already has a complete, generic, async
+  substitute that needs no new code: polling the research ticket's own `tickets ticket show <ID>
+  --json` for its closed-with-note state. `Artifact`'s "produce something shareable" need, by
+  contrast, already has a real cross-CLI equivalent below (the GitHub Pages docs-site pipeline) for
+  its static-page subset — PARTIAL-EQUIVALENT, not a match for Artifact's live runtime capabilities.
+  `ScheduleWakeup` remains genuinely Claude-only with no plausible Codex/Kimi/agy equivalent as of
+  this writing (see `shared/abilities/schedule-wakeup.md` for the latest). `shared/commands/*.md` is
+  a **render target**, not a source — don't hand-edit it.
 - **Renderer**: `render-abilities.ps1` installs every non-claude-only ability into each CLI's real,
   empirically-confirmed extension point:
   - **Claude**: regenerates `shared/commands/*.md`, synced to `~/.claude/commands/`.
@@ -266,3 +277,14 @@ A repo's docs are published by MindAttic.Agency's shared pipeline, never by a pe
 Links are rewritten while staging: links between published pages stay page links, images are
 copied in, anything else in the repo links to it on GitHub, and links that leave the repo keep
 only their text. BIBLE-style `{#id}` anchors and codex front matter are handled too.
+
+**This pipeline is the cross-CLI equivalent for "I need to produce something shareable" (MAT-T103).**
+It is plain PowerShell + `git` + the `gh` CLI + GitHub Actions — nothing Claude-specific — so any CLI
+can run it. It replaces Claude's `Artifact` tool for the subset that's actually about publishing a
+page: a static, version-controlled page anyone can view at `https://mindattic.github.io/<Repo>/`,
+rebuilt on every push to `main`. It does **not** replace Artifact's live/interactive runtime
+capabilities (a page reading live data, `ArtifactData`'s shared mutable state, the page asking Claude
+a question, per-viewer memory, camera/mic/location access, and the rest of the
+`artifact-capabilities` roster), in-chat preview/iteration, or claude.ai's own commenting/sharing
+surface — see **docs/claude-only-abilities.md** for the full, precise breakdown of what's covered
+and what isn't.

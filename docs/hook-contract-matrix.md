@@ -280,6 +280,20 @@ and which is architecturally a different problem no feature flag fixes.
   reader off the `multi_agent_v2` red herring), but `claude-only: true` stays as-is for both -
   correctly, not just cautiously.
 
+**MAT-T103 addendum (2026-11-06): the gap is more fundamental than `SendMessage` alone.** Reading
+`MindAttic.Orchestrator`'s own source (not just the CLI surface checked above) found that
+`orchestrator org start <repo> <who>` - the half of `/research` that starts the actual work on
+another member's login - is itself hardcoded to a Claude session: `OrgStartCommand` never passes
+`--provider`, `StartCommand.Settings.Provider` defaults to `"Claude"`, and its `--account` login path
+explicitly refuses any other provider ("`--account is a Claude login: {provider} has none`",
+`Program.cs`). So there is no cross-CLI "the work gets done under their own Codex/Kimi/agy" path at
+all yet, independent of the notify-back question. The final "tell the asker" step does have a
+complete, generic, async substitute that needs no new code - any CLI can poll the research ticket
+with `tickets ticket show <ID> --json` for its closed-with-note state, which `research.md`'s own
+instructions already produce. Full breakdown (which part is a confirmed implementation gap, which
+part is genuinely architecturally impossible, and which part is already a working generic
+equivalent): **docs/claude-only-abilities.md**.
+
 ## Kimi
 
 **UPDATE (MAT-T98, 2026-11-06): resolved from Kimi's own source, after the live-test path below

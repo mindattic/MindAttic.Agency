@@ -118,8 +118,9 @@ _Nothing recorded yet._
 | MAT-T95 | 2026-11-06 | feature | closed | Single-source ability catalog + per-CLI renderer: port Claude's 32 slash commands/skills so Codex, Kimi, and agy get them too | 944b26f |
 | MAT-T96 | 2026-11-06 | feature | closed | Bootstrap Google Antigravity (agy) config and wire it into the shared standard (hooks, AGENTS.md discovery, abilities) | — |
 | MAT-T97 | 2026-11-06 | docs | closed | Document the cross-CLI capability framework in AGENTS.md itself | — |
-| MAT-T98 | 2026-11-06 | chore | open | Follow-ups from MAT-T93: verify Kimi/agy deny enforcement, Codex SubagentStart/Stop+Notification, skill $ARGUMENTS substitution, and Launcher pre-launch provisioning | — |
+| MAT-T98 | 2026-11-06 | chore | closed | Follow-ups from MAT-T93: verify Kimi/agy deny enforcement, Codex SubagentStart/Stop+Notification, skill $ARGUMENTS substitution, and Launcher pre-launch provisioning | — |
 | MAT-T99 | 2026-11-06 | chore | closed | Verify agy PreToolUse deny enforcement and remaining untested agy hook events | — |
 | MAT-T100 | 2026-11-06 | chore | closed | Verify Codex SubagentStart/SubagentStop/Notification hook events | — |
 | MAT-T101 | 2026-11-06 | feature | wont-do | MindAttic.Launcher: provision a CLI's abilities/hooks automatically before each launch, so future enhancements are shared without a manual rerun | Misfiled under wrong repo; correct ticket is M.LNCH-T113 |
 | MAT-T102 | 2026-11-06 | feature | closed | DUPLICATE of M.LNCH-T113, misfiled under the wrong repo -- see M.LNCH-T113 | — |
+| MAT-T103 | 2026-11-06 | feature | open | Re-examine claude-only abilities for buildable generic equivalents: ScheduleWakeup via OS task scheduling, cross-login messaging via orchestrator, Artifact via the existing docs-site pipeline | — |
