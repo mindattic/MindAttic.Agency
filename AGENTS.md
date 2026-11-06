@@ -38,6 +38,46 @@ protocol. Common commands are implemented once, at the global level, so every re
 - `/show`, `/bootstrap`, `/queue` — implemented directly by the shared runner
   (`prose-agent.ps1`); invoke it by path rather than duplicating its logic.
 
+Every command above is written once, as source, and rendered out to each CLI's own native
+extension point — see "Cross-CLI capability framework" below for where each one actually lands and
+what's confirmed to work versus still unverified per CLI.
+
+## Cross-CLI capability framework (MAT-T93/94/95/96)
+
+Claude Code is not the only CLI this workspace runs (see `MindAttic.Launcher`'s provider list:
+Claude, OpenAI Codex, Kimi Code, Google Antigravity/`agy`). Abilities are written once and rendered
+to every CLI's own convention, rather than hand-maintained per provider:
+
+- **Source of truth**: `shared/abilities/*.md` — plain Markdown, minimal frontmatter (`name`,
+  `description`, `argument-hint`, `claude-only: true|false`). A `claude-only` ability depends on a
+  Claude Code SDK/runtime mechanism with no equivalent elsewhere (`SendMessage`/`Agent`/
+  `ScheduleWakeup`/`Artifact`) and is honestly marked unavailable on other CLIs rather than silently
+  broken. `shared/commands/*.md` is a **render target**, not a source — don't hand-edit it.
+- **Renderer**: `render-abilities.ps1` installs every non-claude-only ability into each CLI's real,
+  empirically-confirmed extension point:
+  - **Claude**: regenerates `shared/commands/*.md`, synced to `~/.claude/commands/`.
+  - **Codex**: has no custom-prompts directory (confirmed by testing, not assumed) — abilities are
+    collected into `shared/codex-command-catalog.md`, referenced from AGENTS.md, which Codex reads
+    natively.
+  - **Kimi**: `~/.kimi-code/skills/<name>/SKILL.md` (confirmed auto-discovery path, same
+    directory-per-skill shape Claude's Skill tool uses).
+  - **agy**: `~/.gemini/config/skills/<name>/SKILL.md` — agy's real global customization root
+    (confirmed empirically; it is *not* `~/.agy` or `~/.antigravity`, and it is a different
+    directory from Gemini CLI's own `~/.gemini/settings.json`).
+- **Hooks** (pacing/context-gate/rate-limit banner): canonical scripts live at `shared/hooks/`
+  (`pace-gate.py`, `context-gate.py`, `rl-check.py`, `log-user-input.ps1`) — previously loose,
+  untracked files with no backup. `install-hooks.ps1` repoints Claude's `settings.json`, Codex's
+  `hooks.json`, Kimi's `config.toml`, and agy's `hooks.json` at this one shared copy.
+- **What's actually confirmed to work, per CLI, per hook/mechanism** — including real gotchas (e.g.
+  agy's hook commands must NOT be double-quoted on Windows) and what's still unverified (Kimi's
+  `PreToolUse` deny enforcement couldn't be exercised — its default login has no funded account;
+  agy's deny enforcement, and Codex's `SubagentStart`/`SubagentStop`/`Notification` events, are
+  likewise unverified) — is tracked in **`docs/hook-contract-matrix.md`**. Read it before assuming
+  a hook "works" on a non-Claude CLI; `context-gate.py` deliberately no-ops for any provider other
+  than Claude today (it exits immediately rather than claiming parity it doesn't have).
+- Claude Code's own behavior is unchanged by any of this — verified directly (a live tool call
+  still succeeds after every repoint) rather than assumed.
+
 ## Cloning a new repo
 
 Never run a bare `git clone` into the workspace. Use
