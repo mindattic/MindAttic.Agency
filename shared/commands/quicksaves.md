@@ -4,13 +4,14 @@ argument-hint: "[nothing - lists every pending handoff]"
 allowed-tools: PowerShell, Bash
 ---
 
-# Handoffs - browse pending quicksaves
+# Quicksaves - browse pending handoffs
 
-Global MindAttic command (MAT-T109) - works in any repo under the workspace root, with no
-per-project setup. Lists every **unconsumed** handoff in the machine-wide registry
-(`%LOCALAPPDATA%\MindAttic\handoffs`, shared by every login) - a handoff already restored by
-`/quickload` is consumed and won't appear. Give one nickname with `/alias` (see that command) if
-a handoff doesn't have one and should.
+Global MindAttic command (MAT-T109, renamed from `/handoffs` in MAT-T113 - a handoff *is* what
+`/quicksave` creates, so this list is named after the command family it sits beside) - works in
+any repo under the workspace root, with no per-project setup. Lists every **unconsumed** handoff
+in the machine-wide registry (`%LOCALAPPDATA%\MindAttic\handoffs`, shared by every login) - a
+handoff already restored by `/quickload` is consumed and won't appear. Give one nickname with
+`/alias` (see that command) if a handoff doesn't have one and should.
 
 ## 1. Find the shared runner
 
@@ -23,7 +24,7 @@ user this repo isn't under a MindAttic workspace and stop.
 ## 2. Fetch the data
 
 ```powershell
-& <workspace-root>\mindattic-agent-standard\prose-agent.ps1 handoffs -Json
+& <workspace-root>\mindattic-agent-standard\prose-agent.ps1 quicksaves -Json
 ```
 
 This returns every unconsumed handoff, newest first, as JSON objects with at least `code`,

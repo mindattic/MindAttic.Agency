@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
   [Parameter(Position=0)]
-  [ValidateSet('bootstrap','save','load','do','progress','show','queue','handoffs','alias')]
+  [ValidateSet('bootstrap','save','load','do','progress','show','queue','quicksaves','alias')]
   [string]$Command = 'bootstrap',
   # load <code>: load that exact handoff from the shared registry instead of this repo's latest save.
   # alias: the real handoff code being aliased (MAT-T110) - see -Alias below.
@@ -270,7 +270,7 @@ switch ($Command) {
     exit 0
   }
   'do' { & $PSCommandPath load -Code $Code -RepoRoot $RepoRoot -RegistryRoot $RegistryRoot -Keep:$Keep -Json:$Json; exit $LASTEXITCODE }
-  'handoffs' {
+  'quicksaves' {
     # Every unconsumed shareable handoff in the registry, newest first.
     $rows = @(Get-ChildItem -LiteralPath $RegistryRoot -Filter '*.json' -File -ErrorAction SilentlyContinue |
       Where-Object { $_.BaseName -match $codePattern } |

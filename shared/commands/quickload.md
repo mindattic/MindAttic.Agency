@@ -31,7 +31,7 @@ literal code and a nickname set by `/alias` both work here, tried in that order:
 & <workspace-root>\mindattic-agent-standard\prose-agent.ps1 load <code-or-nickname> -RepoRoot (Get-Location)
 ```
 
-- If it reports neither a code nor a nickname matched: tell the user, and stop. (`/handoffs` lists
+- If it reports neither a code nor a nickname matched: tell the user, and stop. (`/quicksaves` lists
   every pending one with its code and nickname, if they want to pick one.)
 - Otherwise it prints Code / Repo (with worktree and branch) / Saved by / Task / Decisions /
   State / Next / Universe / Updated and any queued bookmarks, and consumes the code (archived to

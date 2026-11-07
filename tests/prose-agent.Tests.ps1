@@ -130,11 +130,11 @@ Describe 'quicksave shareable code' {
         Test-Path (Join-Path $script:RepoA '.agent\agent-session.json.001') | Should -BeTrue
     }
 
-    It 'handoffs lists only unconsumed codes' {
+    It 'quicksaves lists only unconsumed codes' {
         $a = Save-Handoff $script:RepoA $script:Registry 'kept'
         $b = Save-Handoff $script:RepoB $script:Registry 'loaded'
         $null = Invoke-Runner @('load', $b.code, '-RepoRoot', $script:RepoB, '-RegistryRoot', $script:Registry)
-        $rows = @((Invoke-Runner @('handoffs', '-RegistryRoot', $script:Registry, '-Json')) | ConvertFrom-Json)
+        $rows = @((Invoke-Runner @('quicksaves', '-RegistryRoot', $script:Registry, '-Json')) | ConvertFrom-Json)
         @($rows | ForEach-Object { $_.code }) | Should -Be @($a.code)
     }
 }
