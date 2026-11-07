@@ -29,7 +29,8 @@ guess a path.
 
 Write four fields about the *current* discussion - what a fresh session needs to resume without
 re-asking anything. Be concrete: file paths, names, ids, exact commands. If `$ARGUMENTS` is
-non-empty, lead **Task** with it.
+non-empty, it's a nickname (e.g. `SHADOW`) - lead **Task** with it too, for readability, but the
+nickname itself is set as a real alias in step 4, not just embedded in the text.
 
 - **Task** - the one thing we are mid-work on, as a resumable instruction.
 - **Decisions** - what is settled and must not be re-litigated.
@@ -48,7 +49,18 @@ inside them):
 
 It prints the handoff code it picked.
 
-## 4. Confirm
+## 4. Alias it, if `$ARGUMENTS` was non-empty (MAT-T110)
 
-Tell the user in one line that it's saved and give the code: run `/clear`, then type `do` (or
-`/quickload`) here, or `/quickload <code>` from any login's CLI. Do nothing else.
+```powershell
+& <workspace-root>\mindattic-agent-standard\prose-agent.ps1 alias -Type handoff -Code '<the printed code>' -Alias '<the nickname from $ARGUMENTS>' -RepoRoot (Get-Location)
+```
+
+If it reports the nickname is already taken by a different code, tell the user that plainly
+(naming the other code) rather than silently skipping the alias - the save itself already
+succeeded either way. Skip this step entirely when `$ARGUMENTS` was empty.
+
+## 5. Confirm
+
+Tell the user in one line that it's saved and give the code (and nickname, if one was set): run
+`/clear`, then type `do` (or `/quickload`) here, or `/quickload <code or nickname>` from any
+login's CLI. Do nothing else.

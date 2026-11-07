@@ -1,12 +1,18 @@
 [CmdletBinding()]
 param(
   [Parameter(Position=0)]
-  [ValidateSet('bootstrap','save','load','do','progress','show','queue','handoffs')]
+  [ValidateSet('bootstrap','save','load','do','progress','show','queue','handoffs','alias')]
   [string]$Command = 'bootstrap',
   # load <code>: load that exact handoff from the shared registry instead of this repo's latest save.
+  # alias: the real handoff code being aliased (MAT-T110) - see -Alias below.
   [Parameter(Position=1)]
   [string]$Code,
   [string]$RepoRoot,
+  # alias -Type handoff -Code <real-code> -Alias <nickname>  (MAT-T110): the kind of thing being
+  # aliased. Only 'handoff' exists today.
+  [string]$Type,
+  # alias ...: the human nickname to attach to -Code (e.g. SHADOW), or blank/omitted to clear it.
+  [string]$Alias,
   # Where shareable handoffs live. Every login on this machine (each Claude account is its own config
   # dir, but the same Windows user) reads and writes the same registry, so a code saved in one login's
   # CLI loads in any other. Override with -RegistryRoot or $env:MINDATTIC_HANDOFF_REGISTRY.
@@ -132,8 +138,20 @@ function Complete-HandoffCode([string]$codeToConsume) {
   Remove-Item -LiteralPath $path
 }
 
+function Resolve-HandoffAlias([string]$text) {
+  # Case-insensitive lookup of a human nickname (MAT-T110, set by `alias`) against every unconsumed
+  # handoff's 'alias' field. Returns the real adjective-animal code, or $null if nothing matches.
+  if ([string]::IsNullOrWhiteSpace($text)) { return $null }
+  $needle = $text.Trim().ToLowerInvariant()
+  Get-ChildItem -LiteralPath $RegistryRoot -Filter '*.json' -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.BaseName -match $codePattern } |
+    ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw -Encoding UTF8 | ConvertFrom-Json } |
+    Where-Object { $_.alias -and ([string]$_.alias).Trim().ToLowerInvariant() -eq $needle } |
+    Select-Object -First 1 -ExpandProperty code
+}
+
 function Format-Handoff($s) {
-  if ($s.code) { "Code: $($s.code)" }
+  if ($s.code) { if ($s.alias) { "Code: $($s.code)  [alias: $($s.alias)]" } else { "Code: $($s.code)" } }
   if ($s.repo) {
     $where = "Repo: $($s.repo.name) ($($s.repo.path))"
     if ($s.repo.worktree) { $where += " [worktree of $($s.repo.mainRepo), branch $($s.repo.branch)]" }
@@ -199,8 +217,16 @@ switch ($Command) {
   'load' {
     if (-not [string]::IsNullOrWhiteSpace($Code)) {
       # load <code>: that exact handoff from the shared registry, wherever and by whichever login it was saved.
-      $Code = $Code.Trim().ToLowerInvariant()
-      if ($Code -notmatch $codePattern) { throw "'$Code' is not a handoff code (expected adjective-animal, e.g. lively-oxen)." }
+      $raw0 = $Code.Trim()
+      $lower0 = $raw0.ToLowerInvariant()
+      if ($lower0 -match $codePattern) {
+        $Code = $lower0
+      } else {
+        # Not an adjective-animal code - try it as a nickname set by `alias` (MAT-T110).
+        $resolved = Resolve-HandoffAlias $raw0
+        if (-not $resolved) { throw "'$raw0' is not a handoff code (expected adjective-animal, e.g. lively-oxen), and no unconsumed handoff is aliased '$raw0'." }
+        $Code = $resolved
+      }
       $entryPath = Join-Path $RegistryRoot "$Code.json"
       $consumedNote = $null
       if (-not (Test-Path -LiteralPath $entryPath)) {
@@ -252,7 +278,40 @@ switch ($Command) {
       Sort-Object updatedAt -Descending)
     if ($Json) { ConvertTo-Json -InputObject $rows -Depth 8 }
     elseif ($rows.Count -eq 0) { "No unconsumed handoffs in $RegistryRoot." }
-    else { foreach ($r in $rows) { '{0,-22} {1,-28} {2}  {3}' -f $r.code, $r.repo.name, $r.updatedAt, $r.task } }
+    else { foreach ($r in $rows) { $label = if ($r.alias) { "$($r.code) [$($r.alias)]" } else { $r.code }; '{0,-30} {1,-28} {2}  {3}' -f $label, $r.repo.name, $r.updatedAt, $r.task } }
+    exit 0
+  }
+  'alias' {
+    # alias -Type handoff -Code <real-code> -Alias <nickname>  (MAT-T110): attach, replace or clear
+    # (blank -Alias) a human nickname on an existing unconsumed handoff, usable any time - not just
+    # at /quicksave time. Aliases stay unique among unconsumed handoffs, same as codes, so
+    # /quickload <nickname> is never ambiguous.
+    if ([string]::IsNullOrWhiteSpace($Type)) { throw "alias requires -Type (only 'handoff' exists today)" }
+    if ($Type.Trim().ToLowerInvariant() -ne 'handoff') { throw "alias type '$Type' isn't supported yet - only 'handoff' exists." }
+    if ([string]::IsNullOrWhiteSpace($Code)) { throw 'alias requires -Code, the real handoff code to alias (e.g. silky-frogs)' }
+    $realCode = $Code.Trim().ToLowerInvariant()
+    if ($realCode -notmatch $codePattern) { throw "'$Code' is not a handoff code (expected adjective-animal, e.g. lively-oxen)." }
+    $entryPath = Join-Path $RegistryRoot "$realCode.json"
+    if (-not (Test-Path -LiteralPath $entryPath)) { throw "No unconsumed handoff with code '$realCode' exists in $RegistryRoot." }
+    $newAlias = if ($null -eq $Alias) { '' } else { $Alias.Trim() }
+    if (-not [string]::IsNullOrWhiteSpace($newAlias)) {
+      $clash = Get-ChildItem -LiteralPath $RegistryRoot -Filter '*.json' -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.BaseName -match $codePattern -and $_.BaseName -ne $realCode } |
+        ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw -Encoding UTF8 | ConvertFrom-Json } |
+        Where-Object { $_.alias -and ([string]$_.alias).Trim().ToLowerInvariant() -eq $newAlias.ToLowerInvariant() } |
+        Select-Object -First 1
+      if ($clash) { throw "'$newAlias' already aliases handoff '$($clash.code)'; pick a different nickname, or alias that one to something else first." }
+    }
+    $e = Get-Content -LiteralPath $entryPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ([string]::IsNullOrWhiteSpace($newAlias)) {
+      if ($e.PSObject.Properties.Name -contains 'alias') { $e.PSObject.Properties.Remove('alias') }
+    } else {
+      $e | Add-Member -NotePropertyName alias -NotePropertyValue $newAlias -Force
+    }
+    ($e | ConvertTo-Json -Depth 8) | Set-Content -LiteralPath $entryPath -Encoding UTF8
+    if ($Json) { $e | ConvertTo-Json -Depth 8 }
+    elseif ([string]::IsNullOrWhiteSpace($newAlias)) { "Cleared the alias on $realCode." }
+    else { "Aliased $realCode as '$newAlias'. /quickload $newAlias now resolves to it." }
     exit 0
   }
   'queue' {

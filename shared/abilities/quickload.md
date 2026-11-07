@@ -11,7 +11,9 @@ Global MindAttic command - the counterpart to `/quicksave`, works in any repo un
 root with no per-project setup. The live handoff is conceptually save `0`; archives are `.1`, `.2`,
 ... (most recent archive is `.1`, shifting up as older saves accumulate). `/quickload` with no
 argument and `/quickload 0` are **the same command**. A word-word argument (e.g. `lively-oxen`) is
-a shareable handoff code.
+a shareable handoff code; any other word (e.g. `SHADOW`) is tried as a nickname set by `/alias`
+(MAT-T110) - the runner resolves either one the same way, so just pass through whatever the user
+typed.
 
 ## 0. Find the shared runner
 
@@ -21,16 +23,17 @@ root). In an orchestrator worktree (outside the workspace), use
 `D:\Projects\MindAttic\mindattic-agent-standard\prose-agent.ps1`. If you can't find it, tell the
 user this repo isn't under a MindAttic workspace and stop.
 
-## A handoff code - `/quickload <code>` (e.g. `/quickload lively-oxen`)
+## A handoff code or nickname - `/quickload <code>` (e.g. `/quickload lively-oxen` or `/quickload SHADOW`)
 
-Loads that exact handoff from the machine-wide registry, whichever login and folder saved it:
+Loads that exact handoff from the machine-wide registry, whichever login and folder saved it - a
+literal code and a nickname set by `/alias` both work here, tried in that order:
 
 ```powershell
-& <workspace-root>\mindattic-agent-standard\prose-agent.ps1 load <code> -RepoRoot (Get-Location)
+& <workspace-root>\mindattic-agent-standard\prose-agent.ps1 load <code-or-nickname> -RepoRoot (Get-Location)
 ```
 
-- If it reports no handoff with that code: tell the user, and stop. (`prose-agent.ps1 handoffs`
-  lists the unconsumed codes, if they want to pick one.)
+- If it reports neither a code nor a nickname matched: tell the user, and stop. (`/handoffs` lists
+  every pending one with its code and nickname, if they want to pick one.)
 - Otherwise it prints Code / Repo (with worktree and branch) / Saved by / Task / Decisions /
   State / Next / Universe / Updated and any queued bookmarks, and consumes the code (archived to
   the registry's `consumed\` folder, never deleted; the code is free for reuse). A code that was

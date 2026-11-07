@@ -138,3 +138,53 @@ Describe 'quicksave shareable code' {
         @($rows | ForEach-Object { $_.code }) | Should -Be @($a.code)
     }
 }
+
+Describe 'handoff alias (MAT-T110)' {
+    BeforeEach {
+        $script:Registry = Join-Path $TestDrive ('registry-' + [guid]::NewGuid().ToString('N'))
+        $script:RepoA = Join-Path $TestDrive ('RepoA-' + [guid]::NewGuid().ToString('N'))
+        $script:RepoB = Join-Path $TestDrive ('RepoB-' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:RepoA, $script:RepoB -Force | Out-Null
+    }
+
+    It 'sets a nickname and reports it back as JSON' {
+        $saved = Save-Handoff $script:RepoA $script:Registry 'nickname me'
+        $out = Invoke-Runner @('alias', '-Type', 'handoff', '-Code', $saved.code, '-Alias', 'SHADOW', '-RegistryRoot', $script:Registry, '-Json')
+        $script:LastExit | Should -Be 0
+        ($out | ConvertFrom-Json).alias | Should -Be 'SHADOW'
+    }
+
+    It 'loads by nickname from another repo, case-insensitively' {
+        $saved = Save-Handoff $script:RepoA $script:Registry 'load me by nickname'
+        $null = Invoke-Runner @('alias', '-Type', 'handoff', '-Code', $saved.code, '-Alias', 'SHADOW', '-RegistryRoot', $script:Registry)
+        $out = Invoke-Runner @('load', 'shadow', '-RepoRoot', $script:RepoB, '-RegistryRoot', $script:Registry)
+        $script:LastExit | Should -Be 0
+        $out | Should -Match 'load me by nickname'
+    }
+
+    It 'refuses a nickname already used by a different pending handoff' {
+        $a = Save-Handoff $script:RepoA $script:Registry 'first'
+        $b = Save-Handoff $script:RepoB $script:Registry 'second'
+        $null = Invoke-Runner @('alias', '-Type', 'handoff', '-Code', $a.code, '-Alias', 'SAME', '-RegistryRoot', $script:Registry)
+        { Invoke-Runner @('alias', '-Type', 'handoff', '-Code', $b.code, '-Alias', 'same', '-RegistryRoot', $script:Registry) } | Should -Throw
+    }
+
+    It 'refuses an unsupported type' {
+        $saved = Save-Handoff $script:RepoA $script:Registry 'typed'
+        { Invoke-Runner @('alias', '-Type', 'ticket', '-Code', $saved.code, '-Alias', 'X', '-RegistryRoot', $script:Registry) } | Should -Throw
+    }
+
+    It 'refuses a code with no pending handoff' {
+        { Invoke-Runner @('alias', '-Type', 'handoff', '-Code', 'nonexistent-yetis', '-Alias', 'X', '-RegistryRoot', $script:Registry) } | Should -Throw
+    }
+
+    It 'clears a nickname when -Alias is blank, freeing it for reuse' {
+        $a = Save-Handoff $script:RepoA $script:Registry 'cleared'
+        $b = Save-Handoff $script:RepoB $script:Registry 'reused'
+        $null = Invoke-Runner @('alias', '-Type', 'handoff', '-Code', $a.code, '-Alias', 'REUSE', '-RegistryRoot', $script:Registry)
+        $null = Invoke-Runner @('alias', '-Type', 'handoff', '-Code', $a.code, '-Alias', '', '-RegistryRoot', $script:Registry)
+        $out = Invoke-Runner @('alias', '-Type', 'handoff', '-Code', $b.code, '-Alias', 'REUSE', '-RegistryRoot', $script:Registry, '-Json')
+        $script:LastExit | Should -Be 0
+        ($out | ConvertFrom-Json).alias | Should -Be 'REUSE'
+    }
+}
