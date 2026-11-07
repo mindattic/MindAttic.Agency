@@ -6,6 +6,16 @@ protocol. Common commands are implemented once, at the global level, so every re
 
 - `/do`, `/quicksave`, `/quickload` — real global commands at `~/.claude/commands/` (for Claude
   Code) that invoke the shared runner, `mindattic-agent-standard/prose-agent.ps1` (`save`/`load`).
+- `/handoffs` — a real global command (source `shared/abilities/handoffs.md`, MAT-T109): a brochure
+  of every pending (unconsumed) handoff from `prose-agent.ps1 handoffs -Json` — code, alias if any,
+  repo, and a <=255-character plain-English description of what it's about (the registry's own
+  `description` field when present, else summarized live).
+- `/alias <type> <real-name> <alias>` — a real global command (source `shared/abilities/alias.md`,
+  MAT-T110): attaches, replaces or clears (blank `<alias>`) a human nickname on a pending handoff
+  at any time, not just at `/quicksave` time. Only `type` `handoff` exists today. Stored as a real
+  `alias` field on that handoff's own registry file — `load`/`/quickload` and `/handoffs` resolve
+  or display it the same way they do the handoff's real code; nicknames stay unique among pending
+  handoffs the same way codes do. `/quicksave <name>` sets this automatically after saving.
 - `/commit` — global, Claude Code's own `~/.claude/commands/commit.md`.
 - `/run` — global, a Claude Code built-in skill; no MindAttic-specific file needed.
 - `/deploy` — global router at `~/.claude/commands/deploy.md`: defers to the repo's own

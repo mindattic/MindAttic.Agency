@@ -11,10 +11,10 @@ Install or refresh the thin pointers for all sibling repositories from the works
 powershell -File mindattic-agent-standard/install.ps1
 ```
 
-The runner accepts `bootstrap`, `save`, `load`, `do`, `progress`, `show`, `queue`, and `handoffs`. Project-specific
+The runner accepts `bootstrap`, `save`, `load`, `do`, `progress`, `show`, `queue`, `handoffs`, and `alias`. Project-specific
 commands remain in the project repository's catalog, while common lifecycle commands live here.
 
-`/quicksave`, `/quickload`, `/do`, `/commit`, `/deploy`, `/progress` are also real global commands at
+`/quicksave`, `/quickload`, `/handoffs`, `/alias`, `/do`, `/commit`, `/deploy`, `/progress` are also real global commands at
 `~/.claude/commands/` — present for every repo on Day 1, with no per-project `.claude/commands`
 copy and no `install.ps1` run required. `install.ps1` still projects provider-neutral pointers
 (`.agent/commands/*.md`) for non-Claude clients, mirroring whatever it finds in that global
@@ -32,8 +32,13 @@ machine-wide registry `%LOCALAPPDATA%\MindAttic\handoffs\<code>.json` (override:
 `MINDATTIC_HANDOFF_REGISTRY`). Every login on the machine shares it, so `load <code>`
 (`/quickload <code>`) restores that exact handoff from any login's CLI in any folder; loading
 consumes the code (archived under `consumed\`, never deleted) and frees it for reuse. `handoffs`
-lists the unconsumed codes. The global `/quicksave` and `/quickload` definitions live in
-`shared/commands/`; `share-scripts.ps1` (run by `install.ps1`) installs them into
+lists the unconsumed codes (`/handoffs` renders them as a brochure, MAT-T109, with a <=255-char
+description per entry). `alias -Type handoff -Code <code> -Alias <nickname>` (`/alias handoff
+<code> <nickname>`, MAT-T110) attaches, replaces or clears (blank `-Alias`) a human nickname on a
+pending handoff at any time; `load`/`/quickload` resolve a nickname the same way they resolve a
+literal code. The global `/quicksave`, `/quickload`, `/handoffs` and `/alias` definitions are
+rendered from `shared/abilities/*.md` into `shared/commands/` (a render target, not a source - see
+`render-abilities.ps1`); `share-scripts.ps1` (run by `install.ps1`) installs them into
 `~/.claude/commands/`.
 
 ## Docs site pipeline (HOUSE-LAW-14)
