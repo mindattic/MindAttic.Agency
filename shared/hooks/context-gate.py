@@ -2084,6 +2084,34 @@ if event in ("SubagentStart", "SubagentStop"):
         elif mark.exists():
             mark.unlink()
     sys.exit(0)
+# A background shell (M.ORCH-T1528): a Bash or PowerShell call run in the background goes on after the turn ends, so it is marked
+# (its task id, this CLI, when) and the dashboard counts the CLI busy while that CLI has a shell started about then still running.
+# A shell stopped by hand loses its mark here; one that ended on its own is pruned by the dashboard. Never fails the hook.
+if event == "PostToolUse":
+    try:
+        tool = str(data.get("tool_name") or "")
+        tool_input = data.get("tool_input") if isinstance(data.get("tool_input"), dict) else {}
+        background = DIR / "background"
+        if tool in ("Bash", "PowerShell") and tool_input.get("run_in_background") in (True, "true"):
+            response = data.get("tool_response")
+            task = next((response.get(k) for k in ("backgroundTaskId", "background_task_id", "task_id", "shell_id")
+                         if isinstance(response, dict) and response.get(k)), None)
+            if not task:
+                import uuid
+                task = "bg-" + uuid.uuid4().hex
+            pid = my_pid()
+            background.mkdir(parents=True, exist_ok=True)
+            (background / re.sub(r"[^A-Za-z0-9_.-]", "_", str(task))).write_text(json.dumps({
+                "cli": int(pid) if str(pid or "").isdigit() else None, "session_id": sid,
+                "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "what": str(tool_input.get("description") or tool_input.get("command") or "")[:300]}))
+        elif tool in ("KillShell", "KillBash", "TaskStop"):
+            task = tool_input.get("shell_id") or tool_input.get("task_id") or tool_input.get("bash_id")
+            mark = background / re.sub(r"[^A-Za-z0-9_.-]", "_", str(task or ""))
+            if task and mark.is_file():
+                mark.unlink()
+    except Exception:
+        pass
 if event == "Stop":
     poke()
 # Blocked on you (M.ORCH-T790): a permission prompt (a subagent's holds its parent's turn too) or an AskUserQuestion is
