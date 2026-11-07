@@ -184,6 +184,43 @@ and resume on your own:
   is rate-based, so a burst of new subagents spikes the rate and overshoots the line before the
   forecast catches it. Start a few, let `subagent_note` settle, then add more.
 
+## Printing a status while nothing's been heard from you (MAT-T108)
+
+When a CLI has background work still running (a subagent, a long shell/PowerShell command, a
+Workflow) and the user hasn't sent a new message since it started waiting, don't just go quiet until
+it's done: a return visit after a while should land on a sense of what's been happening, not a blank
+wait.
+
+- **Claude Code only, for now.** This needs the *same* session to produce new, visible output on its
+  own timer with no keystroke from the user — Claude's own `ScheduleWakeup` tool genuinely does
+  that (it's what `/loop` dynamic mode already relies on). The portable `schedule-wakeup` ability
+  (`shared/abilities/schedule-wakeup.md`) does **not** serve this despite being the provider-agnostic
+  mechanism: it re-invokes a brand-new, non-interactive process that logs to its own file, never the
+  live tab anyone is actually watching (its `claude -p`/`codex exec`/`kimi -p`/`agy -p` invocation
+  lines never pass a resume/session flag). `ScheduleWakeup` already has no Codex/Kimi/agy equivalent
+  elsewhere in this doc (the cross-CLI framework section above) — this rule inherits that same gap
+  honestly rather than faking it with the portable mechanism. Leave it Claude-only until a real
+  same-session wakeup exists for the others.
+- **Interval**: read `intervalMinutes` from `shared/config/idle-status.json`; default to 5 if the
+  file is missing or unreadable. It's a global setting — the owner (or a CLI asked to change it on
+  their behalf) just edits that number and commits; nothing else reads a copy of it.
+- **While background work is outstanding and the user's gone quiet**, call `ScheduleWakeup` for the
+  interval. Each time it fires, check both conditions again:
+  - Background work is still running, **and** the user still hasn't sent anything new since the last
+    time you printed → print one short block:
+    ```
+    Working on:
+    - <TICKET-ID>: <a few-word friendly name for it>
+    - <TICKET-ID>: <...>
+    ```
+    one bullet per ticket you're actively progressing right now (your own work, and anything you're
+    waiting on from a subagent) — then schedule another wakeup for the same interval. Repeat for as
+    long as both conditions hold.
+  - Either one breaks (the work finished, or the user already sent something) → print nothing extra
+    and stop rescheduling; a real reply already covers it.
+- This is a status line, never a reason to sit idle on purpose — don't manufacture background work
+  just to have something to report.
+
 ## Clean up after yourself: disk and machine
 
 The system drive filled to 1.2 MB free on 2026-11-05. Agents had left 27.6 GB of scratch build copies in

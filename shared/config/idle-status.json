@@ -1,0 +1,4 @@
+{
+  "intervalMinutes": 5,
+  "_comment": "Read by AGENTS.md's 'Printing a status while nothing's been heard from you' house rule (MAT-T108). How often, in minutes, a CLI with outstanding background work and no new user input re-prints its 'Working on: ...' status. Edit intervalMinutes directly; a CLI asked to change it just edits this number and commits. JSON has no real comments, so this key is ignored by anything that reads intervalMinutes."
+}
