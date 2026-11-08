@@ -1,0 +1,31 @@
+{
+  "_comment": [
+    "Test-runner and soak commands test-gate.py refuses unless the user's own latest prompt asked for tests (MAT-T121).",
+    "Each pattern is a case-insensitive Python regex. 'at' is 'command' (default): matched with re.match at the start of",
+    "each command in a shell call, after test-gate.py strips wrappers (quotes, &, call, env VAR=x, cmd /c, powershell",
+    "-Command/-File, bash -c, npx/pnpm exec/uv run/poetry run) and a leading path from the program name. 'anywhere':",
+    "matched with re.search over each whole command. A repo adds its own in <repo>/.agent/test-gate-patterns.json, same",
+    "shape; those are added to these, never replace them."
+  ],
+  "patterns": [
+    { "name": "dotnet test", "regex": "dotnet(?:\\.exe)?[\"']?\\s+(?:test|vstest)\\b" },
+    { "name": "vstest.console", "regex": "vstest\\.console(?:\\.exe)?\\b" },
+    { "name": "pytest", "regex": "(?:py\\.test|pytest)(?:\\.exe)?\\b" },
+    { "name": "python -m pytest / unittest", "regex": "(?:python[\\d.]*|py)(?:\\.exe)?[\"']?(?:\\s+-[\\w.]+)*\\s+-m\\s+(?:pytest|unittest|nose2?)\\b" },
+    { "name": "npm/yarn/pnpm/bun test", "regex": "(?:npm|yarn|pnpm|bun)(?:\\.cmd|\\.exe)?\\s+(?:run\\s+|run-script\\s+)?(?:test|t|tests|test:[\\w:-]+)(?=[\\s\"']|$)" },
+    { "name": "vitest", "regex": "vitest\\b" },
+    { "name": "jest", "regex": "jest\\b" },
+    { "name": "mocha", "regex": "mocha\\b" },
+    { "name": "playwright test", "regex": "playwright\\s+test\\b" },
+    { "name": "cargo test", "regex": "cargo(?:\\.exe)?\\s+(?:\\+\\S+\\s+)?(?:test|nextest)\\b" },
+    { "name": "ctest", "regex": "ctest(?:\\.exe)?\\b" },
+    { "name": "go test", "regex": "go(?:\\.exe)?\\s+test\\b" },
+    { "name": "Pester", "regex": "Invoke-Pester\\b" },
+    { "name": "tools/test.ps1", "regex": "(?:tools[\\\\/])?test\\.(?:ps1|sh|bat|cmd)\\b" },
+    { "name": "run-tests script", "regex": "run[-_]?(?:core[-_]?)?tests?\\.(?:ps1|sh|bat|cmd|py)\\b" },
+    { "name": "Unity test runner", "regex": "unity(?:\\.exe)?[\"']?\\s.*-runTests\\b", "at": "anywhere" },
+    { "name": "soak runner", "regex": "[\\w.-]*soak[\\w.-]*\\.(?:ps1|sh|bat|cmd|py)\\b" },
+    { "name": "balance runner", "regex": "[\\w.-]*balance[\\w.-]*\\.(?:ps1|sh|bat|cmd|py)\\b" },
+    { "name": "harness soak (campaign/boardaudit)", "regex": "harness\\.py[\"']?\\s+(?:campaign|boardaudit|soak)\\b" }
+  ]
+}

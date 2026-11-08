@@ -38,9 +38,9 @@ silently produce wrong results.
 
 Technique, in rough order:
 
-1. Run the project's build and test suite (detect it from the repo: `dotnet build`/`dotnet test`,
-   `npm test`, `pytest`, `go test ./...`, etc.). Compiler warnings and failing/flaky tests are
-   free, high-confidence signal - start there.
+1. Build the project (detect it from the repo: `dotnet build`, `npm run build`, `cargo build`,
+   `go build ./...`, etc.). Compiler and analyzer warnings are free, high-confidence signal - start
+   there. Don't run the test suite: tests run only when the user asks (GOLDEN RULE, MAT-T121).
 2. Read through the source systematically, one module/service/package per pass. For independent
    areas, if your environment can run separate parallel helper agents or sub-processes (for
    example Claude Code's Agent tool, forking read-only Explore/general-purpose searches), use that

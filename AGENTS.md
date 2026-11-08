@@ -1,5 +1,21 @@
 # MindAttic Agent Standard
 
+## GOLDEN RULE: verification is build-only; tests run last, once, when the user asks
+
+The owner, 2026-11-07: "you can't sit around idle for half an hour to run entire test suites... its such a
+waste of resources to let something retest every little change 100s or 1000s of times in a 5hr period, this
+needs to be a GOLDEN RULE that everything follows."
+
+- **Verification is build-only.** Check a change by building it, then commit and move on. Never run a test
+  suite, a filtered slice of one, a bot soak or a balance run to verify your own work.
+- **Tests run last, once, and only when the user asks** in their own prompt: `/test` (or `/tests`, `/run
+  tests`), or "run the tests". `/commit` never runs them.
+- **Orchestrators and coordinators never instruct subagents to run suites or soaks.** A subagent started by
+  a user's `/test` turn inherits that permission; no other subagent has it.
+- **Keep every CLI busy toward 98% of its 5-hour window** with real work instead of waiting on test runs.
+
+Enforced by `shared/hooks/test-gate.py` (MAT-T121; see "Tests run only when the user says so" below).
+
 Start with the repository's local `AGENTS.md`, then read this shared layer and its project
 protocol. Common commands are implemented once, at the global level, so every repo has them on Day
 1 with no per-project setup:
@@ -100,7 +116,8 @@ to every CLI's own convention, rather than hand-maintained per provider:
     (confirmed empirically; it is *not* `~/.agy` or `~/.antigravity`, and it is a different
     directory from Gemini CLI's own `~/.gemini/settings.json`).
 - **Hooks** (pacing/context-gate/rate-limit banner): canonical scripts live at `shared/hooks/`
-  (`pace-gate.py`, `context-gate.py`, `rl-check.py`, `log-user-input.ps1`) — previously loose,
+  (`pace-gate.py`, `context-gate.py`, `rl-check.py`, `log-user-input.ps1`, and MAT-T121's
+  `test-gate.py` + `test-gate-patterns.json`) — previously loose,
   untracked files with no backup. `install-hooks.ps1` repoints Claude's `settings.json`, Codex's
   `hooks.json`, Kimi's `config.toml`, and agy's `hooks.json` at this one shared copy.
 - **What's actually confirmed to work, per CLI, per hook/mechanism** — including real gotchas (e.g.
@@ -173,6 +190,19 @@ Never run a test suite (or a filtered slice of one) on your own while working: a
 blocks everything behind it. Check work by building it. Tests run only when the user explicitly asks for them
 (`/test`, or `/run tests`, runs a repo's whole suite); `/commit` does not run them (a test run per commit would mean
 endless testing).
+
+**Enforced (MAT-T121).** `shared/hooks/test-gate.py` runs on every CLI (Claude, Codex, Kimi, agy; wired by
+`install-hooks.ps1`):
+
+- `PreToolUse` refuses any shell command that runs a test runner or soak (`dotnet test`, `pytest`, `npm/yarn/pnpm
+  test`, `vitest`, `jest`, `cargo test`, `ctest`, `go test`, `Invoke-Pester`, `tools/test.ps1`, Unity `-runTests`,
+  soak/balance runners, ...). The list is data: `shared/hooks/test-gate-patterns.json`; a repo adds its own runners
+  in `<repo>/.agent/test-gate-patterns.json` (same shape, added to the shared list).
+- `UserPromptSubmit` records, per session, whether the user's latest typed prompt asks for tests (`/test`, `/tests`,
+  `/run tests`, or a non-negated "run (the) tests"); the next prompt replaces it, so permission lasts one user turn.
+- Subagents inherit it: their tool calls carry the parent's session, and `SubagentStart` snapshots the parent
+  turn's permission for that agent, so a `/test` subagent keeps it while the user types on, and others never get it.
+- It fails open: any error in the hook allows the call.
 
 ## Never ask the user to say "continue": wait out the pace yourself
 
