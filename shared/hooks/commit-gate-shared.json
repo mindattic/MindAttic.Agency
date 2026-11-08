@@ -1,0 +1,10 @@
+{
+  "_comment": "Paths every ticket may commit even while another live ticket has changes in them (M.ORCH-T1530): generated or synced shared files. Globs match the repo-relative path or the file name. A repo adds its own in .agent/commit-gate-shared.json (same shape). Keep this short: everything else is per-ticket.",
+  "shared": [
+    "docs/USER_STORIES.md",
+    "data/orchestrator.db",
+    "data/orchestrator.sql",
+    "data/Tickets.db",
+    ".agent/commands/*.md"
+  ]
+}

@@ -300,6 +300,33 @@ manual `git commit`):
   ticket, or to no ticket of yours, unstaged.
 - The ticket database and its generated `docs/USER_STORIES.md` are the only shared files that may
   ride along, and only for the ticket being committed.
+- Close only the ticket your session claimed. Never close, commit, stage, unstage, revert or reformat another
+  agent's work.
+
+**Enforced: the commit gate (M.ORCH-T1530).** `shared/hooks/commit-gate.py` runs in two places:
+
+- **As a CLI hook** (wired by `install-hooks.ps1`): it records which agent (session plus subagent id) modified which
+  path and for which ticket. Edit, Write, MultiEdit and NotebookEdit record their file. A shell call records the dirty
+  files whose mtime falls inside its run. It learns an agent's ticket from `tickets ticket working|close <ID>` and from
+  `git commit ... (<ID>)`, which it trusts, then from the Agent prompt that spawned it, then from
+  `tickets ticket show|note <ID>`. It warns, but doesn't refuse, before an edit to a file another live ticket is
+  mid-work in. It **refuses `tickets ticket close <ID>`** from a session that doesn't hold the claim (`ticket_work`).
+  It also refuses a close while another live subagent works that ticket and this one works a different one. A ticket
+  nobody claimed (manual work) closes freely.
+- **In git's `commit-msg` hook** (`shared/hooks/commit-msg`, after the ticket-ID check): it sees exactly the paths
+  being committed. It **refuses a commit that carries uncommitted changes another agent made for a different, live
+  ticket**, meaning one still open and either claimed or worked by an agent seen in the last 3 hours. It **refuses a
+  bare `git commit` or `git commit -a`** that would take another live session's modified files, whatever their ticket.
+  It warns on a bare commit while other agents are live in the checkout. It warns loudly on a committed file that still
+  has unstaged hunks another agent touched. The refusal names the files, the other ticket, its session and its subagent.
+- **Overrides.** Put `MINDATTIC_SHARED_OK=<path>[,<path>]` (or `=all`) in front of the commit for a genuinely shared
+  file both tickets need. `shared/hooks/commit-gate-shared.json`, plus a repo's own `.agent/commit-gate-shared.json`,
+  lists files that always pass: `docs/USER_STORIES.md`, the ticket and orchestrator databases, and generated
+  `.agent/commands`. Put `MINDATTIC_FORCE_CLOSE=1` in front of `tickets ticket close`, but only when the user told you
+  to close that ticket. `MINDATTIC_COMMIT_GATE=off` turns the gate off. Use the overrides only for those cases, never
+  to get past a refusal you don't understand.
+- **It fails open.** Any error allows the call or the commit. With no other live agent in the checkout it refuses
+  nothing, so a solo user is never blocked. Its state lives in `~/.claude/session-context/commit-gate/`.
 
 Never copy a command's body into a provider-specific or per-project folder. A client-specific
 alias (e.g. a non-Claude provider's own command file) must invoke the shared global command or the

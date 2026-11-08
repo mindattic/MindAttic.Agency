@@ -30,3 +30,17 @@ if ! "$cli" ticket show "$id" >/dev/null 2>&1; then
   echo "commit refused: ticket $id isn't in the ticket database. Check the ID (tickets ticket list) or create the ticket first (tickets ticket new)." >&2
   exit 1
 fi
+
+# Shared-checkout gate (M.ORCH-T1530): refuses a commit carrying another live agent's uncommitted work for a different
+# ticket, or a bare commit taking another session's files. It exits 3 to refuse; any other failure lets the commit through.
+gate="$(dirname "$0")/commit-gate.py"
+if [ -f "$gate" ]; then
+  for py in python python3 py; do
+    if command -v "$py" >/dev/null 2>&1; then
+      "$py" "$gate" git-commit-msg "$1"
+      [ $? -eq 3 ] && exit 1
+      break
+    fi
+  done
+fi
+exit 0

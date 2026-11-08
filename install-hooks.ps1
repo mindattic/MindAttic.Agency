@@ -34,6 +34,11 @@
       - agy:          PreToolUse and PreInvocation under "mindattic-standard" in ~/.gemini/config/hooks.json (unquoted
                       path, per agy's quoting gotcha; "agy <event>" argv since agy's payload names no event)
 
+    It also wires the commit gate (M.ORCH-T1530, shared/hooks/commit-gate.py: agents sharing a checkout can't commit
+    or close each other's unfinished work) the same way: Claude PreToolUse (Bash|PowerShell|Edit|Write|MultiEdit|
+    NotebookEdit|Agent|Task), PostToolUse (Bash|PowerShell), SubagentStart, SubagentStop, SessionEnd; Codex and Kimi
+    the same events with their argv; agy PreToolUse. Its git half runs from shared/hooks/commit-msg (install-commit-hooks.ps1).
+
     The old loose files are NOT deleted here. A single disk is now backed by git either way; removing
     the loose copies is a separate, deliberate step once the new wiring has been proven live (MAT-T94).
 
@@ -279,6 +284,101 @@ if (Test-Path -LiteralPath $agyHooksPath) {
     }
 } else {
     Write-Output "agy: no hooks.json at $agyHooksPath -- skipped"
+}
+
+# -- Commit gate (M.ORCH-T1530): per-agent path tracking, the ticket-close guard, and the "who is committing" marker
+# the commit-msg hook's half of shared/hooks/commit-gate.py reads. Added where it isn't wired yet, never duplicated.
+foreach ($f in @('commit-gate.py', 'commit-gate-shared.json')) {
+    if (-not (Test-Path -LiteralPath (Join-Path $mirrorHooks $f))) {
+        throw "missing shared hook: $(Join-Path $mirrorHooks $f) -- copy it from this repo's shared/hooks first"
+    }
+}
+$commitGatePath = (Join-Path $mirrorHooks 'commit-gate.py').Replace('\', '/')
+
+function Test-HasCommitGate($groups) {
+    foreach ($g in @($groups)) {
+        if ($null -eq $g) { continue }
+        if ($g.PSObject.Properties.Name -contains 'command' -and "$($g.command)" -like '*commit-gate.py*') { return $true }
+        foreach ($h in @($g.hooks)) { if ($null -ne $h -and "$($h.command)" -like '*commit-gate.py*') { return $true } }
+    }
+    return $false
+}
+
+function Add-CommitGateHooks($root, [string]$suffix, [hashtable]$matchers) {
+    if ($null -eq $root.hooks) { $root | Add-Member -NotePropertyName hooks -NotePropertyValue ([pscustomobject]@{}) }
+    $added = 0
+    foreach ($eventName in $matchers.Keys) {
+        $existing = if ($root.hooks.PSObject.Properties.Name -contains $eventName) { $root.hooks.$eventName } else { $null }
+        if (Test-HasCommitGate $existing) { continue }
+        $group = [pscustomobject]@{
+            matcher = $matchers[$eventName]
+            hooks   = @([pscustomobject]@{ type = 'command'; command = "python `"$commitGatePath`"$suffix"; timeout = 10 })
+        }
+        if ($null -eq $existing) {
+            $root.hooks | Add-Member -NotePropertyName $eventName -NotePropertyValue @($group)
+        } else {
+            $root.hooks.$eventName = @($existing) + $group
+        }
+        $added++
+    }
+    return $added
+}
+
+$commitGateTools = 'Bash|PowerShell|Edit|Write|MultiEdit|NotebookEdit|Agent|Task'
+$claudeCommitMatchers = @{ PreToolUse = $commitGateTools; PostToolUse = 'Bash|PowerShell'; SubagentStart = ''; SubagentStop = ''; SessionEnd = '' }
+foreach ($cf in $claudeFiles) {
+    if (-not (Test-Path -LiteralPath $cf.path)) { continue }
+    $settings = Read-Json $cf.path
+    $n = Add-CommitGateHooks $settings '' $claudeCommitMatchers
+    if ($n -gt 0) {
+        Write-Output "Claude: wired the commit gate on $n event(s) in $($cf.path)"
+        if (-not $WhatIf) { Save-Json $cf.path $settings $cf.owner }
+    } else {
+        Write-Output "Claude: commit gate already wired in $($cf.path)"
+    }
+}
+
+if (Test-Path -LiteralPath $codexHooksPath) {
+    $codexHooks = Read-Json $codexHooksPath
+    $n = Add-CommitGateHooks $codexHooks ' codex' @{ PreToolUse = ''; PostToolUse = ''; SubagentStart = ''; SubagentStop = '' }
+    if ($n -gt 0) {
+        Write-Output "Codex: wired the commit gate on $n event(s) in $codexHooksPath"
+        if (-not $WhatIf) { Save-Json $codexHooksPath $codexHooks 'codex' }
+    } else {
+        Write-Output "Codex: commit gate already wired"
+    }
+}
+
+if (Test-Path -LiteralPath $kimiConfigPath) {
+    $raw = Get-Content -LiteralPath $kimiConfigPath -Raw -Encoding UTF8
+    if ($raw -match 'commit-gate\.py') {
+        Write-Output "Kimi: commit gate already wired"
+    } else {
+        $blocks = foreach ($e in @('PreToolUse', 'PostToolUse', 'SubagentStart', 'SubagentStop')) {
+            "[[hooks]]`nevent = `"$e`"`ncommand = 'python `"$commitGatePath`" kimi'`ntimeout = 10`n"
+        }
+        $updated = $raw.TrimEnd() + "`n`n" + ($blocks -join "`n")
+        Write-Output "Kimi: wired the commit gate in $kimiConfigPath"
+        if (-not $WhatIf) {
+            Backup-File $kimiConfigPath 'kimi'
+            [System.IO.File]::WriteAllText($kimiConfigPath, $updated, (New-Object System.Text.UTF8Encoding $false))
+        }
+    }
+}
+
+if (Test-Path -LiteralPath $agyHooksPath) {
+    $agy = Read-Json $agyHooksPath
+    if ($null -eq $agy.'mindattic-standard') { $agy | Add-Member -NotePropertyName 'mindattic-standard' -NotePropertyValue ([pscustomobject]@{}) }
+    $std = $agy.'mindattic-standard'
+    $pre = if ($std.PSObject.Properties.Name -contains 'PreToolUse') { $std.PreToolUse } else { $null }
+    if (-not (Test-HasCommitGate $pre)) {
+        $g = [pscustomobject]@{ matcher = ''; hooks = @([pscustomobject]@{ type = 'command'; command = "python $commitGatePath agy PreToolUse"; timeout = 10 }) }
+        if ($null -eq $pre) { $std | Add-Member -NotePropertyName PreToolUse -NotePropertyValue @($g) } else { $std.PreToolUse = @($pre) + $g }
+        Write-Output "agy: wired the commit gate in $agyHooksPath"
+        if (-not $WhatIf) { Save-Json $agyHooksPath $agy 'agy' }
+    } else {
+        Write-Output "agy: commit gate already wired"
+    }
 }
 
 if ($WhatIf) { Write-Output 'WhatIf: nothing was changed.' }
