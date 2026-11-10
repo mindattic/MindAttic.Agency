@@ -61,7 +61,8 @@ Then:
    folder). Its changes only reach that other repo through `git subtree push`, so `/commit` does it
    every time; it is part of committing, not a separate cross-repo action, so no `/crossrepo` is needed.
    - Find the subtrees: the `git-subtree-dir: <prefix>` lines in `git log --grep=git-subtree-dir: --format=%B`,
-     unique. None: skip this step.
+     unique. None: skip this step. History keeps a folder that was folded in for good, so skip any prefix
+     the repo's `AGENTS.md` says is no longer a subtree.
    - For each prefix, check whether the pushed range touched it: `git log --oneline <old upstream>..HEAD -- <prefix>`.
      Nothing: skip that prefix.
    - Find its upstream: the URL and branch the repo's `AGENTS.md` (or README) gives for that subtree,

@@ -146,3 +146,4 @@ _Nothing recorded yet._
 | MAT-T123 | 2026-11-10 | chore | closed | Crash recovery: commit the regenerated docs/USER_STORIES.md and the per-member .agent/commands/*.md catalog left uncommitted by the session crash | — |
 | MAT-T124 | 2026-11-10 | chore | closed | Crash recovery / fleet sync: commit the regenerated docs/USER_STORIES.md left uncommitted after other tickets closed elsewhere | — |
 | MAT-T125 | 2026-11-10 | feature | closed | /commit also pushes git subtrees: after pushing a repo whose commits touched a subtree prefix, git subtree push it to its upstream (the user's rule; no /crossrepo needed for it) | shared/abilities/commit.md step 6b |
+| MAT-T126 | 2026-11-10 | fix | closed | /commit's subtree step skips a prefix the repo's AGENTS.md says was folded in (history still lists it as a subtree) | — |
