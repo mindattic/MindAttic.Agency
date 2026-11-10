@@ -22,6 +22,52 @@ skill folder did not already pick it up, read its entry here and follow it in pl
 AGENTS.md should point here once (not done by this script - MAT-T95 leaves that one-line edit
 for a later pass).
 
+## /alias
+
+Attach, replace, or clear a human nickname on a pending quicksave handoff, at any time - not just at save time. /alias <type> <real-name> <alias>.
+
+# Alias - nickname a handoff
+
+Global MindAttic command (MAT-T110) - works in any repo under the workspace root, with no
+per-project setup. A thin wrapper for the shared runner's `alias`, which owns the registry file
+and its uniqueness rules. `type` is the kind of thing being aliased; only `handoff` exists today
+(covering both `/quicksave` and `/quickload`).
+
+## 1. Find the shared runner
+
+Walk up from the current directory until you find a folder containing
+`mindattic-agent-standard\prose-agent.ps1` as an immediate child (that folder is the MindAttic
+workspace root). In an orchestrator worktree (outside the workspace), use
+`D:\Projects\MindAttic\mindattic-agent-standard\prose-agent.ps1`. If you can't find it, tell the
+user this repo isn't under a MindAttic workspace and stop.
+
+## 2. Parse `$ARGUMENTS`
+
+Split on whitespace into exactly three parts: `<type> <real-name> <alias>`. If there aren't three
+parts, show the usage (`/alias handoff <code> <nickname>`, e.g. `/alias handoff silky-frogs
+SHADOW`) and stop without guessing. `<alias>` may itself contain spaces if the user quoted it -
+pass it through as one argument either way; don't split further.
+
+## 3. Run it
+
+```powershell
+& <workspace-root>\mindattic-agent-standard\prose-agent.ps1 alias -Type '<type>' -Code '<real-name>' -Alias '<alias>' -RepoRoot (Get-Location)
+```
+
+- **Unsupported type**: it reports only `handoff` exists today - relay that and stop.
+- **No such handoff**: it reports no unconsumed handoff has that code - relay that (maybe they
+  meant a different code, or it's already been consumed by a `/quickload`) and stop.
+- **Alias already taken**: it names which code already holds that nickname - relay that, and
+  suggest either a different nickname or aliasing the other one away first (an empty `-Alias`
+  clears it: `/alias handoff <that other code> ""`).
+- **Success**: it prints the confirmation, e.g. `Aliased silky-frogs as 'SHADOW'. /quickload
+  SHADOW now resolves to it.` - relay that one line and stop. Do nothing else.
+
+## Clearing a nickname
+
+`/alias handoff <real-name> ""` (an empty third argument) removes the alias from that handoff
+without touching anything else about it.
+
 ## /allocate
 
 Auto-allocates the open tickets of this CLI's repo (or -repo=A,B, wildcards like -repo=GTFO.*, or "all") to its own subagents whenever one has a free slot, all in the repo's own checkout on main (no worktrees or branches), each landing on main and closing its ticket, until none are left. /allocate off stops it in this CLI (its subagents finish, then it quicksaves its repo's handoff); /allocate off all in every CLI; -target=PID,PID|others|all turns it on or off in other CLIs.
@@ -29,6 +75,47 @@ Auto-allocates the open tickets of this CLI's repo (or -repo=A,B, wildcards like
 **Unavailable on Codex today** - Dispatches tickets to parallel subagents through Claude's Agent tool (per-ticket model selection, foreground general-purpose subagents) and reads MindAttic.Orchestrator's per-CLI gate state the same way Claude's Skill-call gating does. No portable "spawn N parallel foreground subagents with model selection" primitive is confirmed on Codex/Kimi/agy today.
 
 **Confirmed-possible Codex equivalent (multi_agent_v2), not wired in automatically:** Codex's own spawn_agent/wait_agent/send_message/followup_task/close_agent/list_agents tool family (confirmed by MAT-T100 - a real nested mid-turn child thread, same shape as this ability's use of Claude's Agent tool) is architecturally the right primitive for the "spawn N subagents, each works a ticket" half of this ability. Not wired in as a working Codex rendering, for three honest reasons checked by MAT-T98: (1) `codex features list` shows multi_agent_v2 at stage "stable" but OFF by default (needs -c features.multi_agent_v2=true, a user-unapproved opt-in) - presenting it as drop-in parity would be dishonest; (2) whether spawn_agent exposes a per-child model-selection parameter (the way this ability picks sonnet/opus per ticket from the Orchestrator's model: line) is unconfirmed - MAT-T100's observed SubagentStart payload only showed agent_type: "default", no model field, and the app-server's generate-json-schema output has no SpawnAgent schema to check (it's a model-facing tool, not an app-server RPC); (3) Kimi/agy still have no confirmed equivalent at all, so marking this portable would be uneven across non-Claude CLIs. Treat this as a confirmed-possible path for Codex specifically, gated on the user explicitly opting into multi_agent_v2 and a follow-up confirming per-child model selection - not as something safe to silently enable today.
+
+## /broadcast-ticket-done
+
+After closing a ticket, tell every other live CLI (Claude, Codex, Kimi, agy - any product, any login) that it closed, so one whose own open ticket required it as a prerequisite finds out without having to poll (MAT-T105).
+
+Run this right after `tickets ticket close <ID>`, for every ticket you close - not just
+Unity.Rea.* ones. It rides entirely on infrastructure that already exists:
+
+- MindAttic.Orchestrator's own `CliNudges` (`Sessions/CliNudges.cs`, M.ORCH-T864) already proved the
+  pattern: drop a `nudge-<pid>-<kind>.txt` file in the shared session-context directory
+  (`~/.claude/session-context` - a shared machine-wide location despite the name) and
+  `shared/hooks/context-gate.py`'s `take_nudges()` folds it into that pid's next turn as hook
+  context, never typed into its input box.
+- `take_nudges()` keys purely on the CLI process's own pid (`MINDATTIC_CLI_PID` or the OS pid) - it
+  has no per-product branch. Since `install-hooks.ps1` (MAT-T94) already points Claude's, Codex's,
+  Kimi's and agy's hooks at this one shared `context-gate.py`, a nudge reaches whichever of those
+  four products happens to own that pid, automatically - no new per-CLI code needed here.
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File "MindAttic.Agency\broadcast-ticket-done.ps1" `
+  -TicketId <ID> -Summary "<one line: what's now true>" -ExcludePid <your own pid, if known>
+```
+
+What it does: scans every `*.state.json` under the shared session-context directory (one per CLI
+turn that has ever run `context-gate.py`, any product, any login), keeps the ones whose pid still
+answers (a live `Get-Process`), and leaves each a `nudge-<pid>-ticket-done.txt` reading
+`Ticket <ID> closed: <Summary> Check your repo's queue (tickets ticket queue) - a prerequisite may
+now be clear.`
+
+**Named limits, not assumed away:**
+- A nudge goes stale after 20 minutes if that CLI's hook never fires in that window
+  (`context-gate.py`'s own `take_nudges()` constant, unmodified by this ability) - a CLI idle longer
+  than that never sees it. This is a best-effort "find out sooner" layer, not the durable record:
+  the ticket itself, polled with `tickets ticket show <ID> --json`, is what MAT-T103 already
+  documented as the real, no-expiry, already-generic cross-CLI notification path
+  (`docs/claude-only-abilities.md`, section 1c). Use both - broadcast for the CLI that happens to be
+  mid-turn soon, rely on the ticket DB for the one that isn't.
+- Only reaches a pid that has a `*.state.json` here already - a CLI that has never run a turn since
+  being wired to the shared hooks won't show up until it does.
+- This is same-machine only (the session-context directory lives under the local user profile); it
+  does not reach a CLI running on a different machine.
 
 ## /bughunt
 
@@ -547,7 +634,9 @@ Global MindAttic command - the counterpart to `/quicksave`, works in any repo un
 root with no per-project setup. The live handoff is conceptually save `0`; archives are `.1`, `.2`,
 ... (most recent archive is `.1`, shifting up as older saves accumulate). `/quickload` with no
 argument and `/quickload 0` are **the same command**. A word-word argument (e.g. `lively-oxen`) is
-a shareable handoff code.
+a shareable handoff code; any other word (e.g. `SHADOW`) is tried as a nickname set by `/alias`
+(MAT-T110) - the runner resolves either one the same way, so just pass through whatever the user
+typed.
 
 ## 0. Find the shared runner
 
@@ -557,16 +646,17 @@ root). In an orchestrator worktree (outside the workspace), use
 `D:\Projects\MindAttic\mindattic-agent-standard\prose-agent.ps1`. If you can't find it, tell the
 user this repo isn't under a MindAttic workspace and stop.
 
-## A handoff code - `/quickload <code>` (e.g. `/quickload lively-oxen`)
+## A handoff code or nickname - `/quickload <code>` (e.g. `/quickload lively-oxen` or `/quickload SHADOW`)
 
-Loads that exact handoff from the machine-wide registry, whichever login and folder saved it:
+Loads that exact handoff from the machine-wide registry, whichever login and folder saved it - a
+literal code and a nickname set by `/alias` both work here, tried in that order:
 
 ```powershell
-& <workspace-root>\mindattic-agent-standard\prose-agent.ps1 load <code> -RepoRoot (Get-Location)
+& <workspace-root>\mindattic-agent-standard\prose-agent.ps1 load <code-or-nickname> -RepoRoot (Get-Location)
 ```
 
-- If it reports no handoff with that code: tell the user, and stop. (`prose-agent.ps1 handoffs`
-  lists the unconsumed codes, if they want to pick one.)
+- If it reports neither a code nor a nickname matched: tell the user, and stop. (`/quicksaves` lists
+  every pending one with its code and nickname, if they want to pick one.)
 - Otherwise it prints Code / Repo (with worktree and branch) / Saved by / Task / Decisions /
   State / Next / Universe / Updated and any queued bookmarks, and consumes the code (archived to
   the registry's `consumed\` folder, never deleted; the code is free for reuse). A code that was
@@ -641,7 +731,8 @@ guess a path.
 
 Write four fields about the *current* discussion - what a fresh session needs to resume without
 re-asking anything. Be concrete: file paths, names, ids, exact commands. If `$ARGUMENTS` is
-non-empty, lead **Task** with it.
+non-empty, it's a nickname (e.g. `SHADOW`) - lead **Task** with it too, for readability, but the
+nickname itself is set as a real alias in step 4, not just embedded in the text.
 
 - **Task** - the one thing we are mid-work on, as a resumable instruction.
 - **Decisions** - what is settled and must not be re-litigated.
@@ -660,10 +751,88 @@ inside them):
 
 It prints the handoff code it picked.
 
-## 4. Confirm
+## 4. Alias it, if `$ARGUMENTS` was non-empty (MAT-T110)
 
-Tell the user in one line that it's saved and give the code: run `/clear`, then type `do` (or
-`/quickload`) here, or `/quickload <code>` from any login's CLI. Do nothing else.
+```powershell
+& <workspace-root>\mindattic-agent-standard\prose-agent.ps1 alias -Type handoff -Code '<the printed code>' -Alias '<the nickname from $ARGUMENTS>' -RepoRoot (Get-Location)
+```
+
+If it reports the nickname is already taken by a different code, tell the user that plainly
+(naming the other code) rather than silently skipping the alias - the save itself already
+succeeded either way. Skip this step entirely when `$ARGUMENTS` was empty.
+
+## 5. Confirm
+
+Tell the user in one line that it's saved and give the code (and nickname, if one was set): run
+`/clear`, then type `do` (or `/quickload`) here, or `/quickload <code or nickname>` from any
+login's CLI. Do nothing else.
+
+## /quicksaves
+
+A brochure of every pending quicksave handoff - code, alias, repo, and a short description of what it's about - so you can find the one to resume.
+
+# Quicksaves - browse pending handoffs
+
+Global MindAttic command (MAT-T109, renamed from `/handoffs` in MAT-T113 - a handoff *is* what
+`/quicksave` creates, so this list is named after the command family it sits beside) - works in
+any repo under the workspace root, with no per-project setup. Lists every **unconsumed** handoff
+in the machine-wide registry (`%LOCALAPPDATA%\MindAttic\handoffs`, shared by every login) - a
+handoff already restored by `/quickload` is consumed and won't appear. Give one nickname with
+`/alias` (see that command) if a handoff doesn't have one and should.
+
+## 1. Find the shared runner
+
+Walk up from the current directory until you find a folder containing
+`mindattic-agent-standard\prose-agent.ps1` as an immediate child (that folder is the MindAttic
+workspace root). In an orchestrator worktree (outside the workspace), use
+`D:\Projects\MindAttic\mindattic-agent-standard\prose-agent.ps1`. If you can't find it, tell the
+user this repo isn't under a MindAttic workspace and stop.
+
+## 2. Fetch the data
+
+```powershell
+& <workspace-root>\mindattic-agent-standard\prose-agent.ps1 quicksaves -Json
+```
+
+This returns every unconsumed handoff, newest first, as JSON objects with at least `code`,
+`repo.name`, `updatedAt`, `task`. Two fields matter most for this brochure when present:
+
+- **`alias`** - a human nickname set by `/alias` (e.g. `SHADOW`, `REMOTE`). Most handoffs won't
+  have one.
+- **`description`** - a ready-made summary, 255 characters or fewer, of what the handoff is
+  about. Use it verbatim when present - don't re-summarize it.
+
+If a handoff has no `description` field (an older save, from before this field existed), write
+one yourself from its `task`/`state`/`decisions` fields: plain English, 255 characters or fewer,
+no mid-sentence truncation - end on a full clause.
+
+## 3. Render it as a brochure, not a table
+
+A straight table doesn't fit a 255-character description in a column. Instead, print one block
+per handoff, newest first:
+
+```
+━━━ SHADOW · silky-frogs ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Repo:      MindAttic
+Updated:   2026-11-06 20:37
+Researched hosting the Orchestrator with a real GPU so agents could run/
+playtest Unity, Unreal and s&box games. Shadow PC rejected as too specialized/
+costly; superseded by REMOTE, a RAM-only host with no GPU need.
+```
+
+- The heading line is the alias (if any) and the code, e.g. `SHADOW · silky-frogs`; a handoff
+  with no alias just shows its code alone, e.g. `early-badgers`.
+- `Updated` in local time, human-readable (`yyyy-MM-dd HH:mm` is fine).
+- Wrap the description to a comfortable terminal width (about 78 columns); don't print it as one
+  unbroken line.
+- A blank line between blocks.
+- If there are none: say plainly there are no pending handoffs right now.
+
+## 4. Close with how to use one
+
+One short line after the brochure: `/quickload <code or alias>` restores any of these from any
+login's CLI (e.g. `/quickload SHADOW` or `/quickload silky-frogs`); `/alias handoff <code>
+<name>` gives an unnamed one a nickname.
 
 ## /research
 
