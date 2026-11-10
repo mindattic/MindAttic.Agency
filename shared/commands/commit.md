@@ -49,7 +49,21 @@ Then:
    Pass the message via heredoc so multi-line formatting is preserved.
 5. Run `git status` after the commit and confirm it succeeded.
 6. Push to the upstream remote (`git push`). If the branch has no upstream yet, push with `-u origin <branch>`. Surface the remote's response - and if the push is rejected (e.g. non-fast-forward), STOP and report to the user instead of force-pushing.
-7. Print the commit hash + a one-line summary.
+   Before pushing, note the range being pushed (`git rev-parse @{u}` .. `HEAD`); step 6b needs it.
+6b. **Push git subtrees too.** A repo can embed another repo as a `git subtree` (e.g. a `shared/`
+   folder). Its changes only reach that other repo through `git subtree push`, so `/commit` does it
+   every time; it is part of committing, not a separate cross-repo action, so no `/crossrepo` is needed.
+   - Find the subtrees: the `git-subtree-dir: <prefix>` lines in `git log --grep=git-subtree-dir: --format=%B`,
+     unique. None: skip this step.
+   - For each prefix, check whether the pushed range touched it: `git log --oneline <old upstream>..HEAD -- <prefix>`.
+     Nothing: skip that prefix.
+   - Find its upstream: the URL and branch the repo's `AGENTS.md` (or README) gives for that subtree,
+     else a remote named after it. Can't find one: don't guess; say which prefix has unpushed changes.
+   - Run `git subtree push --prefix <prefix> <url> <branch>` (it can take minutes on long histories)
+     and surface the output. If it is rejected because the upstream moved on, STOP and report: the
+     fix is `git subtree pull --prefix <prefix> <url> <branch> --squash`, then `/commit` again. Never
+     force-push a subtree upstream, and never push to a remote the repo's `AGENTS.md` forbids.
+7. Print the commit hash + a one-line summary, and each subtree pushed (prefix -> upstream).
 
 Do NOT skip hooks (`--no-verify`). Do NOT force-push. If a pre-commit hook fails, fix the underlying issue and create a fresh commit - never amend. If a push to `main`/`master` is rejected, warn the user before any recovery action; do not force-push protected branches.
 
