@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$WorkspaceRoot,[string]$GlobalClaudeRoot = "$env:USERPROFILE\.claude",[string]$KimiHome = "$env:USERPROFILE\.kimi-code",[string]$AgyHome = "$env:USERPROFILE\.agy",[string]$OutputPath)
+param([string]$WorkspaceRoot,[string]$GlobalClaudeRoot = "$env:USERPROFILE\.claude",[string]$KimiHome = "$env:USERPROFILE\.kimi-code",[string]$AgyHome = "$env:USERPROFILE\.gemini\config",[string]$OutputPath)
 $ErrorActionPreference='Stop'
 if ([string]::IsNullOrWhiteSpace($WorkspaceRoot)) { $WorkspaceRoot = Split-Path -Parent $PSScriptRoot }
 if ([string]::IsNullOrWhiteSpace($OutputPath)) { $OutputPath = Join-Path $PSScriptRoot 'command-catalog.json' }
