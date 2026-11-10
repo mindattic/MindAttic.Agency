@@ -2,15 +2,6 @@
    DocFX's modern template. */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300..800&display=swap');
 
-/* Attic: the wordmark face only (MindAttic.Components AtticFont, pinned CDN copy). */
-@font-face {
-  font-family: 'Attic';
-  font-style: normal;
-  font-weight: normal;
-  font-display: block;
-  src: url('https://cdn.jsdelivr.net/gh/mindattic/MindAttic.Components@V4/web/components/AtticFont/fonts/attic.woff2') format('woff2');
-}
-
 :root,
 [data-bs-theme=dark] {
   --ma-bg: #0d1117;
@@ -55,21 +46,22 @@
 [data-bs-theme=light] .toc a.active,
 [data-bs-theme=light] .affix a.active { color: #FF0033; }
 
-/* Wordmark: logo.svg is the white Attic "M" and the repo name is set in Attic, as on mindattic.com;
-   light mode shows both black. */
+/* Wordmark: logo.svg is the white Attic "M"; the repo name is set in Outfit (MindAttic red), not
+   Attic, since Attic's decorative glyph shapes read ambiguously as titles (MAT-T127). */
 #logo { height: 32px; width: auto; margin-right: .35rem; }
 [data-bs-theme=light] #logo { filter: invert(1); }
 .navbar-brand {
-  font-family: 'Attic', serif;
+  font-family: 'Outfit', system-ui, sans-serif;
   font-size: 1.6rem;
-  font-weight: normal;
+  font-weight: 500;
   letter-spacing: .01em;
   line-height: 1;
   display: inline-flex;
   align-items: center;
+  color: #FF0033;
 }
-[data-bs-theme=dark] .navbar-brand { color: #fff; }
-[data-bs-theme=light] .navbar-brand { color: #000; }
+[data-bs-theme=dark] .navbar-brand,
+[data-bs-theme=light] .navbar-brand { color: #FF0033; }
 
 /* Outfit is the base font: Bootstrap's font variables feed body, nav, search, buttons and tooltips. */
 :root,
