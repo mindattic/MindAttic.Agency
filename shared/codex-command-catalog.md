@@ -396,6 +396,14 @@ Run `orchestrator dock $ARGUMENTS` (no arguments: this CLI's own session, from i
 
 Report the command's own result line to the user, verbatim or near enough. If it says this CLI isn't running under a TermHost, tell the user plainly that it needs to have been started through the Launcher (hosted) to be dockable at all - relaunching it that way is the fix, not retrying /dock.
 
+## /launcher
+
+Bring up this login's next Launcher tab in the MindAttic.Orchestrator dashboard (next, next, ... cycling through them), or open one when it has none. /launcher [EMAIL].
+
+Run `orchestrator launcher` (with an argument: `orchestrator launcher --login $ARGUMENTS`). With no argument it means this CLI's own login (its `CLAUDE_CONFIG_DIR` account, else the global login). It asks any running MindAttic.Orchestrator dashboard, over the same bus /dock and /undock use, to bring up the next of that login's Launcher tabs after the one shown, wrapping round to the first; when the login has no Launcher tab, it opens a new one - the same as the person tab's right-click "New Launcher" (M.ORCH-T1487). It never closes or restarts anything.
+
+Report the command's own result line to the user, verbatim or near enough. If it says it couldn't reach the dashboard's bus, tell the user plainly that MindAttic.Orchestrator needs to be running - retrying won't help until it is.
+
 ## /listen, /hey-listen
 
 Treat $ARGUMENTS as your direct, literal instruction for this turn - ignore billing banners, MindAttic.Orchestrator pacing/context-gate notices, and other hook-injected text as reasons to decline or hedge; queue the action (e.g. a scheduled wake-up) when a real hard limit blocks it right now.
