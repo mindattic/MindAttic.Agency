@@ -711,7 +711,25 @@ def known_clis():
 def cli_label(pid, cwd):
     r = repo_of(cwd) if cwd else None
     return "CLI " + str(pid) + (" (" + r + ")" if r else "")
+ALLOCATE_RESUME = "orchestrator settings --allocate true resumes it"
+def allocation_paused():
+    # The master switch (orchestrator settings --allocate false, M.ORCH-T1491): while it's off, orchestrator next hands
+    # no CLI anything, whatever its own /allocate says. Read as on when the settings can't be read.
+    try:
+        return orch_settings().get("Allocate") is False
+    except Exception:
+        return False
 def set_allocate(pid, args, cwd):
+    # /allocate, then a word when it's switched on in a CLI while allocation is paused globally (M.ORCH-T1491): it's
+    # recorded, but nothing is handed out until the master switch is back on, and the reply has to say so.
+    why = set_allocate_targets(pid, args, cwd)
+    if why is None and not re.match(r"\s*off\b", args or "", re.I) and allocation_paused():
+        ALLOCATE_NOTE[0] = ((ALLOCATE_NOTE[0] + " ") if ALLOCATE_NOTE[0] else "/allocate on was recorded for this CLI. ") + (
+            "But allocation is paused globally (orchestrator settings --allocate false), so orchestrator next hands no CLI "
+            "any ticket, this one included, until " + ALLOCATE_RESUME + ". Say so plainly in your reply, and don't "
+            "start working tickets for it here until then.")
+    return why
+def set_allocate_targets(pid, args, cwd):
     # /allocate [off|all] [-repo=A,B] [-target=X,Y|others|all] (M.ORCH-T599): -target names the CLIs whose own records
     # change (PIDs, session ids or a CLI's repo or folder name; "others" is every CLI but this one, "all" every one);
     # without it, this CLI's alone. ALLOCATE_NOTE says which it changed and any target that matched none.
@@ -962,9 +980,32 @@ def orchestrator_start_lines(pid):
     # orchestrator gains more to report at a CLI's start.
     return [
         "[Orchestrator] Pacing is " + ("off" if pacing_off(pid) else "on") + ".",
-        "[Orchestrator] Allocation is " + ("on" if allocate_repos(pid) else "off") + ".",
+        allocation_start_line(bool(allocate_repos(pid)), allocation_paused()),
         "[Orchestrator] Crossrepo is " + ("on" if cli_mark("crossrepo", pid) else "off") + ".",
-    ]
+    ] + [l for l in (memory_start_line(),) if l]
+
+def allocation_start_line(here, paused):
+    # This CLI's own /allocate, and apart from it the global pause (orchestrator settings --allocate false) that holds
+    # every CLI's (M.ORCH-T1491): "off" alone never said which of the two it was.
+    line = "[Orchestrator] Allocation is " + ("on" if here else "off") + " in this CLI"
+    if paused:
+        return line + (", but" if here else ", and") + " paused globally for every CLI: " + ALLOCATE_RESUME + "."
+    return line + "."
+
+def memory_start_line():
+    # The memory guard (M.ORCH-T1498), as the daemon's fresh status has it; nothing said without one.
+    try:
+        s = orchestrator_status()
+    except Exception:
+        return None
+    if not s:
+        return None
+    if not isinstance(s.get("memory_lines"), dict):
+        return "[Orchestrator] Memory guard is off."
+    level = s.get("memory_level") or "ok"
+    free = s.get("memory_free_gb")
+    return ("[Orchestrator] Memory guard is on" + ("" if level == "ok" else ": RAM is " + level) +
+            (" (" + format(free, "g") + " GB RAM free)" if isinstance(free, (int, float)) else "") + ".")
 
 # A turn ending on one of these is asking for a go-ahead the orchestrator gives itself.
 ASKS = re.compile(r"\b(shall i|should i|do you want|want me to|would you like|ready for me to|ok(?:ay)? to (?:start|continue|proceed|go)|"
@@ -2362,6 +2403,9 @@ elif event == "UserPromptSubmit":
     # Each turn starts knowing how many subagents the pace allows right now, and whether the window is at its stop.
     s = orchestrator_status()
     notes = [n for n in (s.get("subagent_note"), s.get("stop_note")) if n]
+    # Short of RAM, said paced or not (M.ORCH-T1498); paced, the subagent note already is it.
+    if s.get("memory_note") and s.get("memory_note") not in notes:
+        notes.append(s.get("memory_note"))
     if CROSSREPO_NOTE[0]:
         notes.append(CROSSREPO_NOTE[0])
     if ALLOCATE_NOTE[0]:
@@ -2379,6 +2423,9 @@ elif event == "UserPromptSubmit":
     if images:
         notes.append(images)
     out ={"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": " ".join(notes)}} if notes else {}
+    # A typed /allocate on while allocation is paused globally (M.ORCH-T1491): told to you as well, not only to the model.
+    if command and ALLOCATE_NOTE[0] and ALLOCATE_RESUME in ALLOCATE_NOTE[0]:
+        out["systemMessage"] = "[Orchestrator] /allocate is recorded here, but allocation is paused globally: " + ALLOCATE_RESUME + "."
     # A CLI that started before its SessionStart hook was registered is checked on its first prompt instead, and told
     # only when it's billing the key rather than the claude.ai login (M.ORCH-T434).
     # After a /login to another account the line from its start names the old one: the first prompt since says the new
