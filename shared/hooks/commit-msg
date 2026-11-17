@@ -26,10 +26,24 @@ if ! command -v "$cli" >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! "$cli" ticket show "$id" >/dev/null 2>&1; then
-  echo "commit refused: ticket $id isn't in the ticket database. Check the ID (tickets ticket list) or create the ticket first (tickets ticket new)." >&2
-  exit 1
-fi
+# Only a definite "No ticket <ID>." refuses. A timeout or a locked ticket database (the lookup fails some other way) is retried
+# and then lets the commit through with a warning (M.ORCH-T1697): a refusal leaves the message in .git/COMMIT_EDITMSG, which a
+# retry of the commit then reuses and which in a shared checkout may by then hold another agent's message.
+tries=0
+while :; do
+  out=$("$cli" ticket show "$id" 2>&1) && break
+  case "$out" in
+    *"No ticket "*)
+      echo "commit refused: ticket $id isn't in the ticket database. Check the ID (tickets ticket list) or create the ticket first (tickets ticket new)." >&2
+      exit 1 ;;
+  esac
+  tries=$((tries + 1))
+  if [ "$tries" -ge "${MINDATTIC_TICKET_CHECK_TRIES:-3}" ]; then
+    echo "warning: couldn't check ticket $id in the ticket database ($tries tries failed); committing anyway." >&2
+    break
+  fi
+  sleep "${MINDATTIC_TICKET_CHECK_WAIT:-2}"
+done
 
 # Shared-checkout gate (M.ORCH-T1530): refuses a commit carrying another live agent's uncommitted work for a different
 # ticket, or a bare commit taking another session's files. It exits 3 to refuse; any other failure lets the commit through.
