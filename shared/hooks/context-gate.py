@@ -929,6 +929,195 @@ def publish_status(kind, payload):
             os.close(fd)
     except Exception:
         pass
+EDIT_TOOLS = ("Edit", "Write", "MultiEdit", "NotebookEdit")
+EDIT_CLAIMS = Path.home() / ".claude" / "session-context" / "edit-claims"
+def edit_claim_settings():
+    # (mode, seconds a claim lasts): just the two settings' rows, or the settings file when the database can't be read.
+    rows = orch_rows("SELECT name, value FROM settings WHERE name IN ('EditClaims', 'EditClaimMinutes')", timeout=1)
+    s = {}
+    if rows is None:
+        s = orch_settings()
+    else:
+        for name, value in rows:
+            try:
+                s[name] = json.loads(value)
+            except Exception:
+                pass
+    mode = str(s.get("EditClaims") or "Warn").strip().lower()
+    if mode not in ("off", "warn", "block"):
+        mode = "warn"
+    try:
+        minutes = float(s.get("EditClaimMinutes"))
+    except Exception:
+        minutes = 30
+    return mode, max(1.0, minutes) * 60
+def edit_claim_path(path, cwd=None):
+    # The file as claims name it (absolute, case-folded; Git Bash's /d/... read as D:/...), or None outside a repo checkout.
+    try:
+        p = re.sub(r"^/([a-zA-Z])(?=/|$)", r"\1:", str(path or "").strip())
+        if not p:
+            return None
+        if not os.path.isabs(p):
+            if not cwd:
+                return None
+            p = os.path.join(re.sub(r"^/([a-zA-Z])(?=/|$)", r"\1:", str(cwd)), p)
+        p = os.path.normcase(os.path.abspath(p))
+        return p if repo_of(p) else None
+    except Exception:
+        return None
+def edit_claim_file(p):
+    import hashlib
+    return EDIT_CLAIMS / (hashlib.sha1(p.encode("utf-8")).hexdigest()[:32] + ".json")
+def edit_claim_read(f):
+    try:
+        c = json.loads(f.read_text(encoding="utf-8"))
+        return c if isinstance(c, dict) else None
+    except Exception:
+        return None
+def edit_claim_mine(c, data):
+    return c.get("session") == str(data.get("session_id") or "") and c.get("agent") == str(data.get("agent_id") or "")
+def edit_claim_live(c, now, life):
+    # Still standing: edited within its life, and its CLI still running (the same process, not a reused pid).
+    try:
+        if now - float(c.get("at") or 0) > life:
+            return False
+        pid = c.get("cli")
+        if pid:
+            started = process_started(pid)
+            if started is None:
+                return False
+            if c.get("cli_started") and abs(started - float(c["cli_started"])) > 2:
+                return False
+        return True
+    except Exception:
+        return False
+def edit_claim_other(p, data, life):
+    # The live claim another agent holds on file p, or None.
+    c = edit_claim_read(edit_claim_file(p))
+    if not c or edit_claim_mine(c, data) or not edit_claim_live(c, time.time(), life):
+        return None
+    return c
+def edit_claim_holder(c):
+    who = str(c.get("who") or "")
+    agent = str(c.get("agent") or "")
+    text = (who + "'s " if who else "") + ("subagent " + agent[:8] if agent else "main session")
+    if c.get("cli"):
+        text += " in CLI " + str(c["cli"])
+    if c.get("session"):
+        text += " (session " + str(c["session"])[:8] + ")"
+    try:
+        text += ", claimed " + str(max(0, int((time.time() - float(c.get("at") or 0)) // 60))) + " min ago"
+    except Exception:
+        pass
+    return text
+def edit_claim_take(p, data):
+    # Records (or refreshes) this agent's claim on file p, replaced whole so a reader never sees half of it.
+    try:
+        pid = os.environ.get("MINDATTIC_CLI_PID") or cli_pid()
+        pid = int(pid) if str(pid or "").isdigit() else None
+        claim = {"path": p, "session": str(data.get("session_id") or ""), "agent": str(data.get("agent_id") or ""),
+                 "cli": pid, "cli_started": process_started(pid) if pid else None, "at": time.time(),
+                 "who": Path(os.environ.get("CLAUDE_CONFIG_DIR") or "").name}
+        EDIT_CLAIMS.mkdir(parents=True, exist_ok=True)
+        f = edit_claim_file(p)
+        tmp = f.with_name(f.name + "." + str(os.getpid()) + ".tmp")
+        tmp.write_text(json.dumps(claim), encoding="utf-8")
+        os.replace(tmp, f)
+    except Exception:
+        pass
+def edit_claims_release(keep):
+    # Drops every claim keep(claim) says to let go, and any claim met on the way that has lapsed; never raises.
+    try:
+        if not EDIT_CLAIMS.is_dir():
+            return
+        now = time.time()
+        life = None
+        for f in EDIT_CLAIMS.glob("*.json"):
+            c = edit_claim_read(f)
+            try:
+                if c is None:
+                    if now - f.stat().st_mtime > 60:
+                        f.unlink()  # unreadable for a minute: not one being replaced
+                    continue
+                if not keep(c):
+                    f.unlink()
+                    continue
+                if life is None:
+                    life = edit_claim_settings()[1]
+                if not edit_claim_live(c, now, life):
+                    f.unlink()
+            except Exception:
+                pass
+    except Exception:
+        pass
+GIT_COMMIT = re.compile(r"(?:^|[;&|(\n])\s*(?:&\s*)?['\"]?git(?:\.exe)?['\"]?(?:\s+(?:-C\s+(?:\"[^\"]*\"|'[^']*'|\S+)|-c\s+\S+|--?[\w-]+(?:=\S+)?))*\s+commit\b")
+def edit_claims_committed(data, command, cwd):
+    # A git commit by this agent releases its claims on the paths it names after " -- "; with none named (or none of
+    # them claimed by it), all of its claims, so a commit never leaves its own claims standing.
+    m = GIT_COMMIT.search(command)
+    if not m:
+        return
+    tail = re.split(r"&&|\|\||[;\n|]", command[m.end():].split(" -- ", 1)[1], maxsplit=1)[0] if " -- " in command[m.end():] else ""
+    named = [t[1:-1] if len(t) > 1 and t[0] == t[-1] and t[0] in "\"'" else t for t in re.findall(r"\"[^\"]*\"|'[^']*'|\S+", tail)]
+    named = [os.path.normcase(n.replace("/", os.sep).strip()) for n in named if n and not n.startswith("-")]
+    def named_it(c):
+        p = str(c.get("path") or "")
+        for n in named:
+            full = edit_claim_path(n, cwd)
+            if (full and full == p) or p.endswith(os.sep + re.sub(r"^(?:\.[\\/])+", "", n)):
+                return True
+        return False
+    mine = [c for c in (edit_claim_read(f) for f in (EDIT_CLAIMS.glob("*.json") if EDIT_CLAIMS.is_dir() else [])) if c and edit_claim_mine(c, data)]
+    precise = bool(named) and any(named_it(c) for c in mine)
+    edit_claims_release(lambda c: not (edit_claim_mine(c, data) and (not precise or named_it(c))))
+def edit_claims_after_tool(data):
+    # The context gate's PostToolUse: an edit claims its file (and warns when another agent already holds it); a git
+    # commit releases the committing agent's claims. Returns the warning to give the agent, or None. Never raises.
+    try:
+        tool = str(data.get("tool_name") or "")
+        args = data.get("tool_input") if isinstance(data.get("tool_input"), dict) else {}
+        if tool in EDIT_TOOLS:
+            p = edit_claim_path(args.get("file_path") or args.get("notebook_path"), data.get("cwd"))
+            if not p:
+                return None
+            mode, life = edit_claim_settings()
+            if mode == "off":
+                return None
+            held = edit_claim_other(p, data, life)
+            if held is None:
+                edit_claim_take(p, data)
+                return None
+            return ("[Edit claim] " + str(args.get("file_path") or args.get("notebook_path")) + " is also being edited by another agent: " + edit_claim_holder(held) + " (M.ORCH-T1193). "
+                    "You both have uncommitted changes in it now: re-read it right before you commit and commit only your own "
+                    "hunks (a private index and git apply --cached), or leave the file to them. Their claim lapses when they "
+                    "commit it, their subagent finishes or their CLI closes, or after " + str(int(life // 60)) + " min without an edit.")
+        if tool in ("Bash", "PowerShell"):
+            command = str(args.get("command") or "")
+            if "commit" in command and "fatal:" not in str(data.get("tool_response") or ""):
+                edit_claims_committed(data, command, data.get("cwd"))
+    except Exception:
+        pass
+    return None
+def edit_claim_refusal(data):
+    # The pace gate's PreToolUse: with EditClaims "Block", a subagent's edit of a file another live agent holds is
+    # refused (the reason), else None. A CLI's main thread is never refused (the user's own edits can't deadlock).
+    try:
+        if not data.get("agent_id") or data.get("tool_name") not in EDIT_TOOLS:
+            return None
+        args = data.get("tool_input") if isinstance(data.get("tool_input"), dict) else {}
+        p = edit_claim_path(args.get("file_path") or args.get("notebook_path"), data.get("cwd"))
+        if not p or not edit_claim_file(p).exists():
+            return None
+        mode, life = edit_claim_settings()
+        held = edit_claim_other(p, data, life) if mode == "block" else None
+        if held is None:
+            return None
+        return (str(args.get("file_path") or args.get("notebook_path")) + " is being edited by another agent: " + edit_claim_holder(held) + ". EditClaims is set to Block "
+                "(M.ORCH-T1193), so this edit was refused. Work on your other files first and try again later (the claim "
+                "lapses when they commit it, their subagent finishes or their CLI closes, or after " + str(int(life // 60)) +
+                " min without an edit), or end your turn reporting the overlap if you can't go on without this file.")
+    except Exception:
+        return None
 
 def pacing_off(pid):
     # /pacing off's mark on this CLI (see the /pacing command below): no pace holds until it closes or /pacing on.
@@ -1048,6 +1237,11 @@ def workable(repos, sid=None):
             epics = {e.upper() for (e,) in db.execute("SELECT ticket_id FROM ticket_labels WHERE label = 'epic'").fetchall()}
         except Exception:
             epics = set()
+        # A ticket released as waiting on the owner (label waiting-on-owner, M.ORCH-T1425) isn't work until the owner clears it.
+        try:
+            parked = {e.upper() for (e,) in db.execute("SELECT ticket_id FROM ticket_labels WHERE label = 'waiting-on-owner'").fetchall()}
+        except Exception:
+            parked = set()
         db.close()
         settings = orch_settings()
         def blocked(r):
@@ -1080,7 +1274,7 @@ def workable(repos, sid=None):
         claimed |= held
         named = {r.lower() for r in repos}
         return [r[0] for r in rows if any(fnmatch.fnmatchcase((r[2] or "").lower(), n) for n in named) and (r[2] or "").lower() not in skip and
-                ((r[1] or "").lower() == "fix" or r[0].upper() in approved) and r[0].upper() not in claimed and r[0].upper() not in epics and not blocked(r)]
+                ((r[1] or "").lower() == "fix" or r[0].upper() in approved) and r[0].upper() not in claimed and r[0].upper() not in epics and r[0].upper() not in parked and not blocked(r)]
     except Exception:
         return None
 
@@ -1285,7 +1479,7 @@ def load(path):
 def save(path, value):
     write_exported_mark(path.name[:-len(".state.json")], path, value, table="session_states", key="session_id")
 
-def cli_pid():
+def cli_pid(names=("claude.exe",)):
     try:
         import ctypes, os
         from ctypes import wintypes
@@ -1309,7 +1503,7 @@ def cli_pid():
             pid = procs.get(pid, (0, ""))[0]
             if not pid:
                 return None
-            if procs.get(pid, (0, ""))[1].startswith("claude.exe"):  # or claude.exe.old.N, once the updater renames it
+            if procs.get(pid, (0, ""))[1].startswith(names):  # or claude.exe.old.N, once the updater renames it
                 return pid
     except Exception:
         pass
@@ -1815,6 +2009,58 @@ def daemon_down():
         return age if age > 180 else None
     except Exception:
         return None
+API_KEY_PERSON = "api-key@mindattic.vault"
+def api_credit_stop():
+    # (spent, credit) in dollars once the API key person's starting credit is spent (M.ORCH-T955), for a CLI on that
+    # person's own login folder; None for any other CLI, while credit is left, with no credit set, or when the settings or
+    # the daemon's spend ledger can't be read (fail-open). Summed as ApiSpendLedger.Spend does: every session's hours from
+    # the hour the credit was entered on. A settings read and one small file: no network call per tool call.
+    try:
+        if not PROFILE_DIR or PROFILE_DIR.name.strip().lower() != API_KEY_PERSON:
+            return None
+        settings = orch_settings()
+        credit = settings.get("ApiCreditUsd")
+        if isinstance(credit, bool) or not isinstance(credit, (int, float)):
+            return None
+        start = None
+        since = settings.get("ApiCreditSinceUtc")
+        if since:
+            stamp = str(since).strip().replace("Z", "+00:00")
+            if "." in stamp:
+                # .NET writes up to 7 fractional digits; Python's fromisoformat takes at most 6 before 3.11.
+                head, rest = stamp.split(".", 1)
+                digits = len(rest) - len(rest.lstrip("0123456789"))
+                stamp = head + ("." + rest[:min(digits, 6)] if digits else "") + rest[digits:]
+            at = datetime.fromisoformat(stamp)
+            if at.tzinfo is None:
+                at = at.replace(tzinfo=__import__("datetime").timezone.utc)
+            start = int(at.timestamp() // 3600) * 3600
+        ledger = read_json(ORCH_DIR / "api-spend.json")
+        spent = 0.0
+        # Anthropic's own bill (M.ORCH-T953), when the daemon has read one with the Vault's Admin API key: its hours up to
+        # the read, then the estimate's hours from the read's hour on, as ApiSpendLedger.Spend sums them.
+        cut = None
+        billed = ledger.get("billed")
+        if isinstance(billed, dict) and isinstance(billed.get("hours"), dict) and isinstance(billed.get("through"), int) \
+                and not isinstance(billed.get("through"), bool):
+            cut = billed["through"]
+            for hour, usd in billed["hours"].items():
+                if (start is None or int(hour) >= start) and isinstance(usd, (int, float)) and not isinstance(usd, bool):
+                    spent += float(usd)
+        for hours in (ledger.get("sessions") or {}).values():
+            if isinstance(hours, dict):
+                for hour, usd in hours.items():
+                    if (start is None or int(hour) >= start) and (cut is None or int(hour) >= cut) \
+                            and isinstance(usd, (int, float)) and not isinstance(usd, bool):
+                        spent += float(usd)
+        return (spent, float(credit)) if float(credit) - spent <= 0 else None
+    except Exception:
+        return None
+def api_money(usd):
+    return "$" + format(usd, ",.0f" if abs(usd) >= 100 else ",.2f")
+def api_credit_note(stop):
+    return ("The API key's starting credit is spent (" + api_money(stop[0]) + " spent of " + api_money(stop[1]) + "), so tool calls "
+            "are refused until a new credit is set (orchestrator billing credit <usd>). End your turn now.")
 
 def top_level_value(text, name):
     # (start, end, value) of a top-level key's value in a JSON object's text (the last, as JSON.parse keeps); None if absent.
@@ -2065,6 +2311,150 @@ def take_nudges(paced=True):
         pass
     return out
 
+# The activity feed (the record of docs/spikes/activity-feed.md section 5): one small record per CLI session,
+# session-context\activity\<session>.json: provider, repo, state (working, idle, asking, held or ended), the last tool
+# with a verb and a short redacted target, the ticket, the CLI's pid, a seq and when. Kept by the context gate on every
+# provider's prompt, tool and end-of-turn hooks (Codex UserPromptSubmit, PostToolUse, Stop and Gemini BeforeAgent, AfterTool,
+# AfterAgent since M.ORCH-T964; Claude's UserPromptSubmit, PostToolUse, Stop, SessionStart, permission prompts and
+# AskUserQuestion since M.ORCH-T961), and by the pace gate on each Claude tool call before it runs (M.ORCH-T961). Never a
+# raw tool input: a file's base name, a pattern, a host, a subagent's description, a shell command's description or else
+# its program name only, with token-shaped strings masked. Cheap (one small read and one replace; no database, no other
+# process) and fail-open: any error writes nothing, and the hook goes on as if it weren't here.
+ACTIVITY = Path.home() / ".claude" / "session-context" / "activity"
+ACTIVITY_EVENTS = {"userpromptsubmit": "start", "beforeagent": "start", "pretooluse": "tool", "posttooluse": "tool",
+                   "aftertool": "tool", "stop": "end", "afteragent": "end", "sessionstart": "end", "sessionend": "ended"}
+ACTIVITY_CLI = {"codex": ("codex",), "gemini": ("gemini", "node.exe"), "claude": ("claude.exe",)}
+ACTIVITY_TICKET = r"((?:[A-Z]\.)?[A-Z][A-Z0-9]*-T\d+)"
+ACTIVITY_SHELLS = ("bash", "shell", "local_shell", "exec_command", "unified_exec", "run_shell_command", "powershell")
+ACTIVITY_FILES = {"read": "Reading", "read_file": "Reading", "read_many_files": "Reading", "write": "Writing",
+                  "write_file": "Writing", "edit": "Editing", "multiedit": "Editing", "replace": "Editing",
+                  "notebookedit": "Editing", "list_directory": "Listing", "ls": "Listing"}
+def activity_short(text, limit=80):
+    text = re.sub(r"\s+", " ", str(text or "")).strip()
+    # A token-shaped run (an API key, a JWT, a value after key=/token=/Bearer, a long hex or base64 string) never leaves,
+    # whatever field carried it. The pattern is SecretShapes.ActivityPattern, the same shapes the gateway's broadcast masker
+    # and the dashboard's ToolCallText use (M.ORCH-T963); group 1 is a name before a value, kept (token=***).
+    text = re.sub("((?i:(?:key|token|secret|password|passwd|pwd)[\"']?[ \\t]*[:=][ \\t]*[\"']?|\\bbearer[ \\t]+))([A-Za-z0-9+/_\\-.~]{16,}={0,2})|(?<![A-Za-z0-9_\\-])sk-ant-[A-Za-z0-9_\\-]{20,}|(?<![A-Za-z0-9_\\-])sk-(?:proj-|svcacct-|admin-)?[A-Za-z0-9_\\-]{20,}|(?<![A-Za-z0-9_\\-])gh[pousr]_[A-Za-z0-9]{30,}|(?<![A-Za-z0-9_\\-])github_pat_[A-Za-z0-9_]{40,}|(?<![A-Za-z0-9_\\-])(?:AKIA|ASIA)[A-Z0-9]{16}(?![A-Za-z0-9])|(?<![A-Za-z0-9_\\-])eyJ[A-Za-z0-9_\\-]{5,}\\.[A-Za-z0-9_\\-]{5,}\\.[A-Za-z0-9_\\-]{10,}|(?<![A-Za-z0-9_\\-])xox[abposr]-[A-Za-z0-9\\-]{10,}|(?<![A-Za-z0-9_\\-])AIza[A-Za-z0-9_\\-]{35,}|(?<![A-Za-z0-9_\\-])[spr]k_(?:live|test)_[A-Za-z0-9]{16,}|(?<![A-Za-z0-9+/=_\\-])(?=[A-Za-z0-9+/=_\\-]*[0-9])[A-Za-z0-9+/=_\\-]{32,}",
+                  lambda m: (m.group(1) or "") + "***", text)
+    return text if len(text) <= limit else text[:limit - 1].rstrip() + "…"
+def activity_base(path):
+    p = str(path or "").strip().strip("\"'").rstrip("/\\")
+    return re.split(r"[/\\]", p)[-1] if p else ""
+def activity_command(args):
+    cmd = args.get("command", args.get("cmd"))
+    return " ".join(str(w) for w in cmd) if isinstance(cmd, list) else str(cmd or "")
+def activity_target(tool, args):
+    # (tool, verb, target) for one tool call, Claude's, Codex's and Gemini's tool names all.
+    name = str(tool or "")
+    low = name.lower()
+    args = args if isinstance(args, dict) else {}
+    def s(*keys):
+        for k in keys:
+            v = args.get(k)
+            if isinstance(v, str) and v.strip():
+                return v
+        return ""
+    if low.startswith("mcp_"):
+        return "mcp", "Using", activity_short(name.split("__")[-1], 40)
+    if low in ACTIVITY_SHELLS:
+        said = s("description", "justification")
+        if said:
+            return name, "", activity_short(said.strip().splitlines()[0])
+        cmd = args.get("command", args.get("cmd"))
+        words = [str(w) for w in cmd] if isinstance(cmd, list) else str(cmd or "").split()
+        # ["bash", "-lc", "<script>"] runs the script: its own first word is the program.
+        if len(words) >= 3 and words[1].lower() in ("-lc", "-c", "/c", "-command"):
+            words = words[2].split()
+        return name, "Running", activity_short(activity_base(words[0].lstrip("&")) if words else "", 40)
+    if low == "apply_patch":
+        m = re.search(r"\*\*\* (?:Update|Add|Delete) File: ([^\r\n]+)", s("input", "patch", "command") or activity_command(args))
+        return name, "Editing", activity_short(activity_base(m.group(1)) if m else "")
+    if low in ACTIVITY_FILES:
+        p = s("file_path", "absolute_path", "notebook_path", "path", "dir_path")
+        if not p and isinstance(args.get("paths"), list) and args["paths"]:
+            p = str(args["paths"][0])
+        return name, ACTIVITY_FILES[low], activity_short(activity_base(p))
+    if low in ("grep", "glob", "search_file_content", "grep_search", "file_search"):
+        return name, "Finding" if "glob" in low else "Searching for", activity_short(s("pattern", "query"))
+    if low in ("web_fetch", "webfetch"):
+        # The host only, never a user name or password before it, a path or a query.
+        m = re.search(r"https?://(?:[^/\s?#@]*@)?([^/\s:?#@]+)", s("url", "prompt"))
+        return name, "Reading", activity_short(m.group(1) if m else "")
+    if low in ("google_web_search", "web_search", "websearch"):
+        return name, "Searching the web for", activity_short(s("query"))
+    # Claude's subagent (its task's description, never its prompt) and skill (its name, never its arguments).
+    if low in ("agent", "task"):
+        said = s("description", "subagent_type")
+        return name, "Starting a subagent:", activity_short(said.strip().splitlines()[0] if said else "")
+    if low == "skill":
+        skill = s("skill").strip().lstrip("/")
+        return name, "Using", activity_short("/" + skill, 40) if skill else ""
+    return name, "Using", ""
+def activity_record(provider, data, event, state=None, require=None):
+    # One hook event's picture of its session, replacing the last. state overrides the event's own (asking, held, or
+    # working for a Stop sent back to work); require writes only over a record already that provider's: the pace gate
+    # runs unnamed under every provider's pre-tool hook, and only a session the context gate recorded as Claude's is.
+    try:
+        kind = ACTIVITY_EVENTS.get(str(event or "").lower())
+        sid = str(data.get("session_id") or "")
+        if not (kind or state) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", sid):
+            return
+        # A compaction starts the session again mid-turn: it isn't a turn ending.
+        if str(event or "").lower() == "sessionstart" and str(data.get("source") or "") == "compact":
+            return
+        f = ACTIVITY / (sid + ".json")
+        try:
+            rec = json.loads(f.read_text(encoding="utf-8"))
+            rec = rec if isinstance(rec, dict) else {}
+        except Exception:
+            rec = {}
+        who = str(provider or "").lower()
+        if require and rec.get("provider") != require:
+            return
+        from datetime import datetime as _at, timezone as _utc
+        now = _at.now(_utc.utc)
+        rec.update(session=sid, provider=who, seq=int(rec.get("seq") or 0) + 1,
+                   atUtc=now.strftime("%Y-%m-%dT%H:%M:%S.") + "%03dZ" % (now.microsecond // 1000))
+        repo = repo_of(data.get("cwd")) if data.get("cwd") else None
+        if repo:
+            rec["repo"] = repo
+        if not rec.get("pid"):
+            # A Claude CLI by MINDATTIC_CLI_PID first, as the hooks name it everywhere; else the CLI's own exe this runs under.
+            pid = (os.environ.get("MINDATTIC_CLI_PID") if who == "claude" else None) or cli_pid(ACTIVITY_CLI.get(who, (who,)))
+            if str(pid or "").isdigit() and int(pid) > 0:
+                rec["pid"] = int(pid)
+        for k in ("tool", "verb", "target"):
+            rec.pop(k, None)
+        if kind == "start":
+            rec["state"] = "working"
+            m = re.search(r"\b" + ACTIVITY_TICKET + r"\b", str(data.get("prompt") or ""))
+            if m:
+                rec["ticket"] = m.group(1)
+        elif kind == "tool":
+            args = data.get("tool_input")
+            if isinstance(args, str):
+                try:
+                    args = json.loads(args)
+                except Exception:
+                    args = {"command": args}
+            args = args if isinstance(args, dict) else {}
+            tool, verb, target = activity_target(data.get("tool_name"), args)
+            rec["state"] = "working"
+            rec.update({k: v for k, v in (("tool", tool), ("verb", verb), ("target", target)) if v})
+            m = re.search(r"\b(?:tickets|workflow)(?:\.exe)?['\"]?\s+ticket\s+working\s+['\"]?" + ACTIVITY_TICKET, activity_command(args))
+            if m:
+                rec["ticket"] = m.group(1)
+        elif kind:
+            rec["state"] = "idle" if kind == "end" else "ended"
+        if state:
+            rec["state"] = state
+        ACTIVITY.mkdir(parents=True, exist_ok=True)
+        tmp = f.with_name(f.name + "." + str(os.getpid()) + ".tmp")
+        tmp.write_text(json.dumps(rec), encoding="utf-8")
+        os.replace(tmp, f)
+    except Exception:
+        pass
+
 try:
     # UTF-8 as Claude Code writes it, not the ANSI code page Python reads a pipe in on Windows (M.ORCH-T392).
     data = json.loads(sys.stdin.buffer.read().decode("utf-8", errors="replace"))
@@ -2073,11 +2463,22 @@ except Exception:
 if not isinstance(data, dict):
     sys.exit(0)
 sid, event = data.get("session_id"), data.get("hook_event_name")
-# Codex (its Stop hook) and Gemini (AfterAgent) run this too, named on the command line: nothing here applies to
-# them (their sessions aren't Claude's to cycle, and only a Claude CLI that typed /allocate is kept going).
+# Codex (its UserPromptSubmit, PostToolUse and Stop hooks) and Gemini (BeforeAgent, AfterTool, AfterAgent) run this too,
+# named on the command line: they get only their activity record (M.ORCH-T964). Nothing else here applies to them (their
+# sessions aren't Claude's to cycle, and only a Claude CLI that typed /allocate is kept going).
 provider = sys.argv[1].capitalize() if len(sys.argv) > 1 else "Claude"
 if provider != "Claude":
+    activity_record(provider, data, event)
     sys.exit(0)  # /allocate runs in a Claude CLI; a Codex or Gemini CLI is never pushed onto tickets
+# Claude's activity record (M.ORCH-T961), in the same format: working on a prompt and on a finished tool call (a subagent's
+# too: its session is its parent's), idle at a turn's end and at a session's start, asking on a permission prompt or an
+# AskUserQuestion (the reason never kept). The pace gate adds each tool call before it runs, and held while it waits.
+# A prompt answered unsent, or a Stop sent back to work, is put right where that's decided below. Never fails the hook.
+if event in ("UserPromptSubmit", "PostToolUse", "SessionStart") or (event == "Stop" and not data.get("agent_id")):
+    activity_record("claude", data, event)
+elif event == "PreToolUse" or (event == "Notification" and (str(data.get("notification_type") or "") in ("permission_prompt", "elicitation_dialog")
+        or (not data.get("notification_type") and "permission" in str(data.get("message") or "").lower()))):
+    activity_record("claude", data, event, state="asking")
 # Disk self-cleanup (M.ORCH-T1449): one free-space read at most once a minute; under the --disk-cleanup-gb line it
 # starts `orchestrator disk-cleanup --quiet` detached, which deletes agent-made temp only (one run at a time).
 def disk_check():
@@ -2124,6 +2525,9 @@ if event in ("SubagentStart", "SubagentStop"):
             release_oldest_slot(my_pid() or 0, SUBAGENT_MARKS)
         elif mark.exists():
             mark.unlink()
+        if event == "SubagentStop":
+            # A finished subagent's edit claims go with it (M.ORCH-T1193).
+            edit_claims_release(lambda c: c.get("agent") != str(data["agent_id"]))
     sys.exit(0)
 # A background shell (M.ORCH-T1528): a Bash or PowerShell call run in the background goes on after the turn ends, so it is marked
 # (its task id, this CLI, when) and the dashboard counts the CLI busy while that CLI has a shell started about then still running.
@@ -2153,6 +2557,9 @@ if event == "PostToolUse":
                 mark.unlink()
     except Exception:
         pass
+# Advisory edit claims (M.ORCH-T1193): an edit claims its file, a commit releases the committer's claims, and an edit of a
+# file another live agent holds is told so (said with this tool call's other context, a subagent's included).
+claim_note = edit_claims_after_tool(data) if event == "PostToolUse" else None
 if event == "Stop":
     poke()
 # Blocked on you (M.ORCH-T790): a permission prompt (a subagent's holds its parent's turn too) or an AskUserQuestion is
@@ -2183,6 +2590,8 @@ if sid and event == "PostToolUse" and data.get("agent_id"):
     except Exception:
         pass
 if not sid or data.get("agent_id"):
+    if claim_note:
+        print(json.dumps({"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": claim_note}}))
     sys.exit(0)  # subagents finish inside their parent's turn
 if event == "SessionStart":
     # Every CLI is told at its start what it bills (M.ORCH-T434), as Prose checks its hub first; recorded in the session's
@@ -2225,10 +2634,20 @@ if event == "UserPromptSubmit" and paced:
     # So do the exempt commands (M.ORCH-T198): their turns skip every Orchestrator gate.
     if limits.get("stop") and not CONTROL.match((data.get("prompt") or "").strip()) and not exempt_prompt(data.get("prompt")):
         log_gate_event(datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "prompt-answered", 0, None, limits.get("percent_used"), account_tag())
+        activity_record("claude", data, "Stop")  # answered unsent: the turn never ran (M.ORCH-T961)
         print(json.dumps({"decision": "block", "reason": "Not sent, so no tokens were spent: the " + str(limits.get("stop_window") or "5-hour") + " window is at its target "
             "(MindAttic.Orchestrator never lets it pass the limit). Typing works again when it resets at " +
             str(limits.get("reset_time") or "the end of the window") + ". /allocate, /pacing and /goal clear still go through."}))
         sys.exit(0)
+# The API key person's CLI once its credit is spent (M.ORCH-T955): its typed message is answered unsent the same way, as
+# its every tool call is refused by the pace gate; nothing is billed for it.
+credit_spent = None if paced or event not in ("UserPromptSubmit", "Stop") else api_credit_stop()
+if event == "UserPromptSubmit" and credit_spent and not CONTROL.match((data.get("prompt") or "").strip()) and not exempt_prompt(data.get("prompt")):
+    activity_record("claude", data, "Stop")  # answered unsent: the turn never ran (M.ORCH-T961)
+    print(json.dumps({"decision": "block", "reason": "Not sent, so nothing was billed: the API key's starting credit is spent (" +
+        api_money(credit_spent[0]) + " spent of " + api_money(credit_spent[1]) + "). Typing works again once a new credit is set "
+        "(orchestrator billing credit <usd>). /allocate, /pacing and /goal clear still go through."}))
+    sys.exit(0)
 DIR.mkdir(parents=True, exist_ok=True)
 state_file = DIR / (sid + ".state.json")
 state = load(state_file)
@@ -2248,12 +2667,14 @@ if event == "Stop":
     limits = orchestrator_status()
     # At the window's target nothing more may run, so a stop is never pushed back to work: the orchestrator's stop,
     # latched or fresh, or Claude's own percent at the line with the daemon down, as a typed prompt is held to.
-    stopped = paced and (bool(limits.get("stop")) or orchestrator_stop(limits) is not None or claude_stop() is not None)
+    # The API key person's spent credit is its stop too (M.ORCH-T955): every tool call is refused, so it's never sent on.
+    stopped = (paced and (bool(limits.get("stop")) or orchestrator_stop(limits) is not None or claude_stop() is not None)) or bool(credit_spent)
     # /allocate off winds this CLI down (M.ORCH-T572): once none of its subagents is still working (they've landed and
     # closed), a turn that ends without its quicksave is told to make it, once.
     if winding_down(my_pid()) and not state.get("quicksave_told") and subagents_working(my_pid()) == 0:
         state["quicksave_told"] = True
         save(state_file, state)
+        activity_record("claude", data, event, state="working")  # sent back to work (M.ORCH-T961)
         print(json.dumps({"decision": "block", "reason": wind_down_told(repo_of(data.get("cwd") or "") or Path(str(data.get("cwd") or ".")).name)}))
         sys.exit(0)
     # Saved as still busy, deciding since now, before anything slow is asked (M.ORCH-T1036): saved idle here (M.ORCH-T1005),
@@ -2301,6 +2722,7 @@ if event == "Stop":
         state.pop("closed", None)
         state.pop("deciding", None)
         save(state_file, state)
+        activity_record("claude", data, event, state="working")  # sent back to work (M.ORCH-T961)
         print(json.dumps({"decision": "block", "reason": reason}))
         sys.exit(0)
     for k in ("nudged", "worked", "closed", "deciding"):
@@ -2319,6 +2741,10 @@ if event == "Stop":
         # /goal's own Stop hook sends the turn back while its condition isn't met, and at the stop every tool call is
         # refused, so it never is: each round would spend a turn past the line. continue:false outranks its block.
         save(state_file, state)
+        if credit_spent:
+            print(json.dumps({"continue": False, "stopReason": "The API key's starting credit is spent, so /goal can't go on before a new "
+                "one is set (orchestrator billing credit <usd>); the goal stays set (/goal clear drops it)."}))
+            sys.exit(0)
         # The stop's own window: a weekly wall says so, as the refusal of a typed prompt does.
         own = None if limits.get("stop_window") else claude_stop()
         window = limits.get("stop_window") or (latched("orchestrator") or {}).get("window") or (own[2] if own else None) or "5-hour"
@@ -2361,6 +2787,7 @@ elif event == "UserPromptSubmit":
     if command:
         why = set_allocate(my_pid(), typed[len(command):].strip(), data.get("cwd") or "")
         if why:
+            activity_record("claude", data, "Stop")  # answered unsent (M.ORCH-T961)
             print(json.dumps({"decision": "block", "reason": why}))
             sys.exit(0)
     # /goal <condition> runs turn after turn until its condition holds; cycling would end it, so the session is
@@ -2398,6 +2825,7 @@ elif event == "UserPromptSubmit":
                 why = "Pacing is on in this CLI (the default): its tool calls are held to the pace. /pacing off lifts the holds until it closes."
             if arg:
                 why = "/pacing takes on or off; nothing changed. " + why
+            activity_record("claude", data, "Stop")  # answered unsent (M.ORCH-T961)
             print(json.dumps({"decision": "block", "reason": why}))
             sys.exit(0)
     # Each turn starts knowing how many subagents the pace allows right now, and whether the window is at its stop.
@@ -2495,7 +2923,7 @@ elif event == "PostToolUse":
         except Exception:
             pass
     # A busy turn (an /allocate run never submits a prompt) takes its nudges here, as the old typed prompt waited in its box.
-    said = take_nudges(paced)
+    said = ([claim_note] if claim_note else []) + take_nudges(paced)
     # No context warning any more: nothing quicksaves, clears or reloads a session for it (2026-10-16), so a turn
     # is never told to stop for its context; Claude's own compaction handles a full one.
     if not said:
