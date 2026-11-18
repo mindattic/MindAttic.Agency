@@ -41,7 +41,7 @@ if (-not (Test-Path -LiteralPath $Path -PathType Container)) {
 
 $root = (Resolve-Path -LiteralPath $Path).Path
 $excludeSet = [System.Collections.Generic.HashSet[string]]::new(
-    [string[]]($ExcludeNames | ForEach-Object { $_.ToLowerInvariant() }),
+    [string[]]@($ExcludeNames | ForEach-Object { $_.ToLowerInvariant() }),
     [System.StringComparer]::OrdinalIgnoreCase)
 
 $files = Get-ChildItem -LiteralPath $root -Recurse -File |
