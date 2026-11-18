@@ -160,3 +160,4 @@ _Nothing recorded yet._
 | MAT-T137 | 2026-11-17 | fix | open | Agent standard: the hand-start instructions should run 'orchestrator claim <ID>' (M.ORCH-T1696, 98f5d54c) before 'tickets ticket working', so the daemon's SyncWorking doesn't clear the mark and /allocate doesn't re-dispatch a ticket a CLI is already working; then sync the mindattic-agent-standard mirror | — |
 | MAT-T138 | 2026-11-17 | chore | open | After the 2026-11-17 ~03:40 restart, reopen one CLI per repo whose session was cut off mid-work (Unity.GridGame, IdiotProof, MindAttic.Orchestrator, Mods.MechWarrior5.SaveEditor) and resume each where it stopped | — |
 | MAT-T139 | 2026-11-17 | docs | closed | Update USER_STORIES.md | — |
+| MAT-T143 | 2026-11-17 | fix | closed | compute-mod-hash.ps1 throws a null-collection error when -ExcludeNames is empty, so a payload with nothing to exclude can't be hashed; build the exclude set without a null pipeline result | — |
