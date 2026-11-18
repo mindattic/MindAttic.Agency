@@ -1455,9 +1455,24 @@ def goal_finished(transcript, goal):
     # (an unmet goal keeps the turn going, so more follows). The summary lands after this hook's own Stop, so it's
     # checked later: on the next prompt here, and by the orchestrator's cycler (M.ORCH-T109).
     try:
-        lines = Path(transcript).read_text(encoding="utf-8", errors="ignore").splitlines()[-60:]
+        lines = Path(transcript).read_text(encoding="utf-8", errors="ignore").splitlines()
     except Exception:
         return False
+    # Claude Code's own word comes first: it writes a goal_status record each time it judges the goal, and the
+    # last one reads met once the condition holds or /goal clear is typed. /goal clear runs inside Claude Code
+    # and never reaches this hook as a prompt, so that record is the only sign of it (MAT-T152).
+    for line in reversed(lines):
+        if '"goal_status"' not in line:
+            continue
+        try:
+            a = json.loads(line).get("attachment")
+        except Exception:
+            continue
+        if isinstance(a, dict) and a.get("type") == "goal_status":
+            if a.get("met"):
+                return True
+            break
+    lines = lines[-60:]
     for line in reversed(lines):
         try:
             m = json.loads(line)
