@@ -174,3 +174,4 @@ _Nothing recorded yet._
 | MAT-T151 | 2026-11-18 | feature | closed | Global /psst command: message the owner by email and SMS, including once every open CLI that is not on a /goal has finished | 5d18b60 |
 | MAT-T152 | 2026-11-18 | fix | closed | context-gate: a session's recorded /goal outlives '/goal clear' (session d1df465e still shows goal 'work until complete' after the owner cleared it), so anything reading the goal mark (context cycling, busy --skip-goal) treats the CLI as still on a goal | 96b2ebb |
 | MAT-T153 | 2026-11-18 | docs | closed | Update USER_STORIES.md | — |
+| MAT-T154 | 2026-11-19 | feature | closed | Add global /pull: pull latest from the current repo's upstream (fast-forward only, never discards local work) | shared/abilities/pull.md |
