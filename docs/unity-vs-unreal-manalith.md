@@ -45,7 +45,17 @@ Fix filed as **US-T462**: a reference-shot mode in SpaceGod with the spec's whit
 and the same t as Unity's frame. Then tune the rim until the frames match. The warm star light can stay in normal
 play.
 
+### Result after US-T462
+
+`sg.Manalith shot <file> reference` now matches Unity's frame: the same side of the model faces the camera, with the same pose and framing to within 8 px. Average colour is (101,101,155) against Unity's (103,99,140), and median brightness 98 against 88. Getting there took:
+
+- **A 180° turn about Y.** The two engines read the FBX's axes differently, so Unreal had been showing the model's far side all along, in normal play too. The pose maths matched; the import didn't.
+- **Standing in for Unity's defaults.** Unity adds a default sky ambient and bloom without being asked. Unreal got there with a brighter key light (1.3), a higher ambient floor (0.6) and a stronger rim (5.5) to make up for the tonemapper.
+- **Still different:** Unreal is slightly bluer with darker deep folds. The capture draws no bloom, so the glowing shards show as blue-white dots without halos.
+
 ## Takeaways
+
+- **Check the import, not just the maths.** A matching rotation formula can still face the wrong way if the two engines read the source file's axes differently. Compare a reference frame before trusting any pose.
 
 - **Spec in engine-neutral terms** (diameters, degrees per second, a seed, hex colours) and both engines can follow it.
   Values in engine units would have needed translating twice.
