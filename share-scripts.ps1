@@ -69,7 +69,9 @@ $hookCommand = Command-For $scripts[1].Shared
 if (-not ($global.PSObject.Properties.Name -contains 'hooks')) { $global | Add-Member -NotePropertyName hooks -NotePropertyValue ([pscustomobject]@{}) }
 if (-not ($global.hooks.PSObject.Properties.Name -contains 'UserPromptSubmit')) { $global.hooks | Add-Member -NotePropertyName UserPromptSubmit -NotePropertyValue @() }
 $existing = @($global.hooks.UserPromptSubmit | ForEach-Object { $_.hooks } | ForEach-Object { $_.command })
-if ($existing -notcontains $hookCommand) {
+# Match any quickload hook, not this checkout's exact path: run from the other checkout (Agency vs the
+# mirror) the path differs and an exact match would add a second, duplicate hook.
+if (-not ($existing | Where-Object { "$_" -like '*quickload-on-do.ps1*' })) {
     $groups = @($global.hooks.UserPromptSubmit)
     if ($groups.Count -eq 0) { $groups = @([pscustomobject]@{ matcher = ''; hooks = @() }) }
     $groups[0].hooks = @($groups[0].hooks) + [pscustomobject]@{ type = 'command'; command = $hookCommand }
@@ -114,6 +116,11 @@ foreach ($repo in Get-ChildItem -LiteralPath $WorkspaceRoot -Directory) {
         if ((Get-Md5 $local) -ne $s.Original) { $left += "$($repo.Name): $($s.Local) differs from the common copy; kept"; continue }
 
         $needle = $s.Local.Replace('\', '/')
+        # settings.local.json is never rewritten here, so a copy it still runs must stay on disk.
+        $localSettingsPath = Join-Path $repo.FullName '.claude\settings.local.json'
+        if ((Test-Path -LiteralPath $localSettingsPath) -and ([IO.File]::ReadAllText($localSettingsPath).Replace('\\', '/').Replace('\', '/') -like "*$needle*")) {
+            $left += "$($repo.Name): $($s.Local) is still referenced by .claude\settings.local.json; kept"; continue
+        }
         if ($settings) {
             if ($s.Name -eq 'statusline' -and $settings.PSObject.Properties.Name -contains 'statusLine' -and "$($settings.statusLine.command)".Replace('\','/') -like "*$needle*") {
                 $settings.PSObject.Properties.Remove('statusLine'); $changed = $true
@@ -140,7 +147,10 @@ if ($WhatIf) { Write-Output 'WhatIf: nothing was changed.' }
 # side is edited on its own. Report-only: sync-workspace-copy.ps1 (no -Check) is the one that copies.
 # Run as a child process (not `&`/dot-sourced): its own -Check path calls `exit`, which would otherwise
 # terminate this script too instead of just reporting.
-$syncScript = Join-Path $PSScriptRoot 'sync-workspace-copy.ps1'
-if (Test-Path -LiteralPath $syncScript) {
+# Always run the canonical checkout's copy: run from the mirror, its own copy would compare the mirror to itself.
+$syncScript = Join-Path $WorkspaceRoot 'MindAttic.Agency\sync-workspace-copy.ps1'
+if (-not (Test-Path -LiteralPath $syncScript)) {
+    Write-Output "drift check skipped: no canonical checkout at $(Split-Path -Parent $syncScript)"
+} else {
     powershell -NoProfile -ExecutionPolicy Bypass -File $syncScript -WorkspaceRoot $WorkspaceRoot -Check
 }

@@ -20,7 +20,8 @@
 # Do not flip Target by hand before the last local-to-Azure sync: use Switch-PromptLog.ps1.
 param([string]$SettingsPath, [string]$StateDir)
 try {
-    $raw = [Console]::In.ReadToEnd()
+    # The hook JSON is UTF-8; [Console]::In would decode it with the OEM codepage on PowerShell 5.1.
+    $raw = (New-Object IO.StreamReader([Console]::OpenStandardInput(), (New-Object Text.UTF8Encoding $false))).ReadToEnd()
     if ([string]::IsNullOrWhiteSpace($raw)) { exit 0 }
     $payload = $raw | ConvertFrom-Json
     $prompt = $payload.prompt
@@ -147,7 +148,11 @@ try {
             $claims = @()
             if ((Test-Path -LiteralPath $spool) -and -not (Expired)) {
                 $claim = Join-Path $StateDir ("spool-{0}-{1}.draining" -f $PID, [datetime]::UtcNow.Ticks)
-                try { Move-Item -LiteralPath $spool -Destination $claim -ErrorAction Stop; $claims += $claim } catch { }   # the rename is the claim: one hook wins
+                try {
+                    Move-Item -LiteralPath $spool -Destination $claim -ErrorAction Stop; $claims += $claim   # the rename is the claim: one hook wins
+                    # The rename keeps the spool's old write time; stamp it now so another run doesn't take a fresh claim for a dead one.
+                    try { [IO.File]::SetLastWriteTimeUtc($claim, [datetime]::UtcNow) } catch { }
+                } catch { }
             }
             # a claim left behind by a run that died while draining
             $claims += @(Get-ChildItem -LiteralPath $StateDir -Filter 'spool-*.draining' -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTimeUtc -lt [datetime]::UtcNow.AddMinutes(-5) -and $claims -notcontains $_.FullName } | ForEach-Object { $_.FullName })

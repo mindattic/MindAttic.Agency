@@ -36,7 +36,7 @@
 
     It also wires the commit gate (M.ORCH-T1530, shared/hooks/commit-gate.py: agents sharing a checkout can't commit
     or close each other's unfinished work) the same way: Claude PreToolUse (Bash|PowerShell|Edit|Write|MultiEdit|
-    NotebookEdit|Agent|Task), PostToolUse (Bash|PowerShell), SubagentStart, SubagentStop, SessionEnd; Codex and Kimi
+    NotebookEdit|Agent|Task), PostToolUse (Bash|PowerShell|Edit|Write|MultiEdit|NotebookEdit), SubagentStart, SubagentStop, SessionEnd; Codex and Kimi
     the same events with their argv; agy PreToolUse. Its git half runs from shared/hooks/commit-msg (install-commit-hooks.ps1).
 
     The old loose files are NOT deleted here. A single disk is now backed by git either way; removing
@@ -77,7 +77,9 @@ function Read-Json([string]$path) { Get-Content -LiteralPath $path -Raw -Encodin
 function Backup-File([string]$path, [string]$owner) {
     $backup = Join-Path $env:LOCALAPPDATA "MindAttic\install-hooks-backup\$stamp\$owner"
     New-Item -ItemType Directory -Force -Path $backup | Out-Null
-    Copy-Item -LiteralPath $path -Destination (Join-Path $backup (Split-Path -Leaf $path)) -ErrorAction SilentlyContinue
+    $dest = Join-Path $backup (Split-Path -Leaf $path)
+    # Keep the first copy taken this run: a later save of the same file must not overwrite the true original.
+    if (-not (Test-Path -LiteralPath $dest)) { Copy-Item -LiteralPath $path -Destination $dest -ErrorAction SilentlyContinue }
 }
 
 function Save-Json([string]$path, $value, [string]$owner) {
@@ -88,8 +90,10 @@ function Save-Json([string]$path, $value, [string]$owner) {
 
 # The old loose-file absolute paths this replaces, and their new shared replacement -- both
 # normalized to forward slashes, since every CLI here already writes its hook commands that way.
+# pace-gate.py and context-gate.py are NOT repointed: MindAttic.Orchestrator owns them now and regenerates its own,
+# newer copies in the Claude home on every deploy, so pointing a CLI at shared/hooks would run a stale gate (MAT-T163).
 $oldToNew = @{}
-foreach ($f in $hookFiles) {
+foreach ($f in @('rl-check.py', 'log-user-input.ps1')) {
     $old = if ($f -eq 'log-user-input.ps1') { Join-Path $GlobalClaudeRoot "hooks\$f" } else { Join-Path $GlobalClaudeRoot $f }
     $oldToNew[$old.Replace('\', '/')] = (Join-Path $mirrorHooks $f).Replace('\', '/')
 }
@@ -153,7 +157,7 @@ if (Test-Path -LiteralPath $codexHooksPath) {
 # byte-for-byte untouched.
 $kimiConfigPath = Join-Path $GlobalKimiRoot 'config.toml'
 if (Test-Path -LiteralPath $kimiConfigPath) {
-    $raw = Get-Content -LiteralPath $kimiConfigPath -Raw -Encoding UTF8
+    $raw = "$(Get-Content -LiteralPath $kimiConfigPath -Raw -Encoding UTF8)"  # "" (not $null) for an empty file
     $updated = $raw
     foreach ($old in $oldToNew.Keys) { $updated = $updated.Replace($old, $oldToNew[$old]) }
     if ($updated -ne $raw) {
@@ -193,16 +197,18 @@ function Add-TestGateHooks($root, [string]$suffix, [hashtable]$matchers) {
     if ($null -eq $root.hooks) { $root | Add-Member -NotePropertyName hooks -NotePropertyValue ([pscustomobject]@{}) }
     $added = 0
     foreach ($eventName in $matchers.Keys) {
-        $existing = if ($root.hooks.PSObject.Properties.Name -contains $eventName) { $root.hooks.$eventName } else { $null }
+        $hasEvent = $root.hooks.PSObject.Properties.Name -contains $eventName
+        $existing = if ($hasEvent) { $root.hooks.$eventName } else { $null }
         if (Test-HasTestGate $existing) { continue }
         $group = [pscustomobject]@{
             matcher = $matchers[$eventName]
             hooks   = @([pscustomobject]@{ type = 'command'; command = "python `"$testGatePath`"$suffix"; timeout = 10 })
         }
-        if ($null -eq $existing) {
+        # Branch on the property, not the value: an empty "<Event>": [] unrolls to $null here.
+        if (-not $hasEvent) {
             $root.hooks | Add-Member -NotePropertyName $eventName -NotePropertyValue @($group)
         } else {
-            $root.hooks.$eventName = @($existing) + $group
+            $root.hooks.$eventName = @($root.hooks.$eventName) + $group
         }
         $added++
     }
@@ -229,6 +235,44 @@ foreach ($cf in $claudeFiles) {
     }
 }
 
+# Every Claude login gets the same repoint the global settings.json got above (a per-login settings.json can still
+# name the old loose log-user-input.ps1), and rl-check.py runs once per session: it is a startup banner, so on
+# UserPromptSubmit it injected its text into the model's context on every prompt.
+foreach ($cf in $claudeFiles) {
+    if (-not (Test-Path -LiteralPath $cf.path)) { continue }
+    $settings = Read-Json $cf.path
+    if ($null -eq $settings.hooks) { continue }
+    $n = Repoint-HooksObject $settings.hooks
+    $moved = 0
+    if ($settings.hooks.PSObject.Properties.Name -contains 'UserPromptSubmit') {
+        # Move only the rl-check.py handler itself: it can share a group with other UserPromptSubmit hooks
+        # (log-user-input.ps1, quickload-on-do.ps1) that must stay where they are.
+        $keep = @(); $rl = @()
+        foreach ($g in @($settings.hooks.UserPromptSubmit)) {
+            if ($null -eq $g) { continue }
+            $mine = @($g.hooks | Where-Object { $null -ne $_ -and "$($_.command)" -like '*rl-check.py*' })
+            if (-not $mine.Count) { $keep += $g; continue }
+            $rl += [pscustomobject]@{ matcher = ''; hooks = $mine }
+            $rest = @($g.hooks | Where-Object { $null -ne $_ -and "$($_.command)" -notlike '*rl-check.py*' })
+            if ($rest.Count) { $g.hooks = $rest; $keep += $g }
+        }
+        if ($rl.Count) {
+            $settings.hooks.UserPromptSubmit = $keep
+            if ($settings.hooks.PSObject.Properties.Name -contains 'SessionStart') {
+                $hasRl = @(@($settings.hooks.SessionStart) | Where-Object { $null -ne $_ } | ForEach-Object { @($_.hooks) } | Where-Object { "$($_.command)" -like '*rl-check.py*' }).Count
+                if (-not $hasRl) { $settings.hooks.SessionStart = @($settings.hooks.SessionStart) + $rl }
+            } else {
+                $settings.hooks | Add-Member -NotePropertyName SessionStart -NotePropertyValue @($rl)
+            }
+            $moved = $rl.Count
+        }
+    }
+    if ($n -gt 0 -or $moved -gt 0) {
+        Write-Output "Claude: repointed $n hook command(s), moved rl-check.py to SessionStart ($moved) in $($cf.path)"
+        if (-not $WhatIf) { Save-Json $cf.path $settings $cf.owner }
+    }
+}
+
 if (Test-Path -LiteralPath $codexHooksPath) {
     $codexHooks = Read-Json $codexHooksPath
     $n = Add-TestGateHooks $codexHooks ' codex' @{ UserPromptSubmit = ''; SubagentStart = ''; PreToolUse = '' }
@@ -241,7 +285,7 @@ if (Test-Path -LiteralPath $codexHooksPath) {
 }
 
 if (Test-Path -LiteralPath $kimiConfigPath) {
-    $raw = Get-Content -LiteralPath $kimiConfigPath -Raw -Encoding UTF8
+    $raw = "$(Get-Content -LiteralPath $kimiConfigPath -Raw -Encoding UTF8)"  # "" (not $null) for an empty file
     if ($raw -match 'test-gate\.py') {
         Write-Output "Kimi: test gate already wired"
     } else {
@@ -264,16 +308,18 @@ if (Test-Path -LiteralPath $agyHooksPath) {
     $std = $agy.'mindattic-standard'
     $n = 0
     # agy: tool events take the matcher wrapper, other events are flat handler arrays; commands stay unquoted.
-    $pre = if ($std.PSObject.Properties.Name -contains 'PreToolUse') { $std.PreToolUse } else { $null }
+    $hasPre = $std.PSObject.Properties.Name -contains 'PreToolUse'
+    $pre = if ($hasPre) { $std.PreToolUse } else { $null }
     if (-not (Test-HasTestGate $pre)) {
         $g = [pscustomobject]@{ matcher = ''; hooks = @([pscustomobject]@{ type = 'command'; command = "python $testGatePath agy PreToolUse"; timeout = 10 }) }
-        if ($null -eq $pre) { $std | Add-Member -NotePropertyName PreToolUse -NotePropertyValue @($g) } else { $std.PreToolUse = @($pre) + $g }
+        if (-not $hasPre) { $std | Add-Member -NotePropertyName PreToolUse -NotePropertyValue @($g) } else { $std.PreToolUse = @($std.PreToolUse) + $g }
         $n++
     }
-    $inv = if ($std.PSObject.Properties.Name -contains 'PreInvocation') { $std.PreInvocation } else { $null }
+    $hasInv = $std.PSObject.Properties.Name -contains 'PreInvocation'
+    $inv = if ($hasInv) { $std.PreInvocation } else { $null }
     if (-not (Test-HasTestGate $inv)) {
         $h = [pscustomobject]@{ type = 'command'; command = "python $testGatePath agy PreInvocation"; timeout = 10 }
-        if ($null -eq $inv) { $std | Add-Member -NotePropertyName PreInvocation -NotePropertyValue @($h) } else { $std.PreInvocation = @($inv) + $h }
+        if (-not $hasInv) { $std | Add-Member -NotePropertyName PreInvocation -NotePropertyValue @($h) } else { $std.PreInvocation = @($std.PreInvocation) + $h }
         $n++
     }
     if ($n -gt 0) {
@@ -308,16 +354,18 @@ function Add-CommitGateHooks($root, [string]$suffix, [hashtable]$matchers) {
     if ($null -eq $root.hooks) { $root | Add-Member -NotePropertyName hooks -NotePropertyValue ([pscustomobject]@{}) }
     $added = 0
     foreach ($eventName in $matchers.Keys) {
-        $existing = if ($root.hooks.PSObject.Properties.Name -contains $eventName) { $root.hooks.$eventName } else { $null }
+        $hasEvent = $root.hooks.PSObject.Properties.Name -contains $eventName
+        $existing = if ($hasEvent) { $root.hooks.$eventName } else { $null }
         if (Test-HasCommitGate $existing) { continue }
         $group = [pscustomobject]@{
             matcher = $matchers[$eventName]
             hooks   = @([pscustomobject]@{ type = 'command'; command = "python `"$commitGatePath`"$suffix"; timeout = 10 })
         }
-        if ($null -eq $existing) {
+        # Branch on the property, not the value: an empty "<Event>": [] unrolls to $null here.
+        if (-not $hasEvent) {
             $root.hooks | Add-Member -NotePropertyName $eventName -NotePropertyValue @($group)
         } else {
-            $root.hooks.$eventName = @($existing) + $group
+            $root.hooks.$eventName = @($root.hooks.$eventName) + $group
         }
         $added++
     }
@@ -325,11 +373,21 @@ function Add-CommitGateHooks($root, [string]$suffix, [hashtable]$matchers) {
 }
 
 $commitGateTools = 'Bash|PowerShell|Edit|Write|MultiEdit|NotebookEdit|Agent|Task'
-$claudeCommitMatchers = @{ PreToolUse = $commitGateTools; PostToolUse = 'Bash|PowerShell'; SubagentStart = ''; SubagentStop = ''; SessionEnd = '' }
+# PostToolUse covers the edit tools too: the gate records an edit's path only once the edit has run (MAT-T163).
+$commitGatePostTools = 'Bash|PowerShell|Edit|Write|MultiEdit|NotebookEdit'
+$claudeCommitMatchers = @{ PreToolUse = $commitGateTools; PostToolUse = $commitGatePostTools; SubagentStart = ''; SubagentStop = ''; SessionEnd = '' }
 foreach ($cf in $claudeFiles) {
     if (-not (Test-Path -LiteralPath $cf.path)) { continue }
     $settings = Read-Json $cf.path
     $n = Add-CommitGateHooks $settings '' $claudeCommitMatchers
+    # An existing install wired PostToolUse for the shell tools only: widen that group's matcher in place.
+    if ($settings.hooks.PSObject.Properties.Name -contains 'PostToolUse') {
+        foreach ($g in @($settings.hooks.PostToolUse)) {
+            if ($null -ne $g -and "$($g.matcher)" -eq 'Bash|PowerShell' -and @($g.hooks | Where-Object { $null -ne $_ -and "$($_.command)" -like '*commit-gate.py*' }).Count) {
+                $g.matcher = $commitGatePostTools; $n++
+            }
+        }
+    }
     if ($n -gt 0) {
         Write-Output "Claude: wired the commit gate on $n event(s) in $($cf.path)"
         if (-not $WhatIf) { Save-Json $cf.path $settings $cf.owner }
@@ -350,7 +408,7 @@ if (Test-Path -LiteralPath $codexHooksPath) {
 }
 
 if (Test-Path -LiteralPath $kimiConfigPath) {
-    $raw = Get-Content -LiteralPath $kimiConfigPath -Raw -Encoding UTF8
+    $raw = "$(Get-Content -LiteralPath $kimiConfigPath -Raw -Encoding UTF8)"  # "" (not $null) for an empty file
     if ($raw -match 'commit-gate\.py') {
         Write-Output "Kimi: commit gate already wired"
     } else {
@@ -370,10 +428,11 @@ if (Test-Path -LiteralPath $agyHooksPath) {
     $agy = Read-Json $agyHooksPath
     if ($null -eq $agy.'mindattic-standard') { $agy | Add-Member -NotePropertyName 'mindattic-standard' -NotePropertyValue ([pscustomobject]@{}) }
     $std = $agy.'mindattic-standard'
-    $pre = if ($std.PSObject.Properties.Name -contains 'PreToolUse') { $std.PreToolUse } else { $null }
+    $hasPre = $std.PSObject.Properties.Name -contains 'PreToolUse'
+    $pre = if ($hasPre) { $std.PreToolUse } else { $null }
     if (-not (Test-HasCommitGate $pre)) {
         $g = [pscustomobject]@{ matcher = ''; hooks = @([pscustomobject]@{ type = 'command'; command = "python $commitGatePath agy PreToolUse"; timeout = 10 }) }
-        if ($null -eq $pre) { $std | Add-Member -NotePropertyName PreToolUse -NotePropertyValue @($g) } else { $std.PreToolUse = @($pre) + $g }
+        if (-not $hasPre) { $std | Add-Member -NotePropertyName PreToolUse -NotePropertyValue @($g) } else { $std.PreToolUse = @($std.PreToolUse) + $g }
         Write-Output "agy: wired the commit gate in $agyHooksPath"
         if (-not $WhatIf) { Save-Json $agyHooksPath $agy 'agy' }
     } else {

@@ -225,7 +225,9 @@ def query_sqlserver(server, database, sql):
         path = f.name
     try:
         out = subprocess.run(
-            ["sqlcmd", "-S", server, "-d", database, "-E", "-C", "-i", path, "-s", "\x1f", "-W", "-h", "-1"],
+            ["sqlcmd", "-S", server, "-d", database, "-E", "-C", "-i", path, "-s", "\x1f", "-y", "0"],
+            # -y 0: don't truncate nvarchar(max) at 256 chars. sqlcmd refuses -y with -W or -h; with -y 0 it
+            # prints no header and pads nothing, so neither is needed.
             capture_output=True, text=True, check=True,
         ).stdout
         rows = []

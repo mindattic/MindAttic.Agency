@@ -1,13 +1,16 @@
 [CmdletBinding(DefaultParameterSetName = 'Delay')]
 param(
-  [Parameter(Mandatory, Position = 0)]
+  [Parameter(Mandatory, Position = 0, ParameterSetName = 'Delay')]
+  [Parameter(Mandatory, Position = 0, ParameterSetName = 'At')]
   [ValidateSet('claude', 'codex', 'kimi', 'agy')]
   [string]$Cli,
 
-  [Parameter(Mandatory)]
+  [Parameter(Mandatory, ParameterSetName = 'Delay')]
+  [Parameter(Mandatory, ParameterSetName = 'At')]
   [string]$WorkDir,
 
-  [Parameter(Mandatory)]
+  [Parameter(Mandatory, ParameterSetName = 'Delay')]
+  [Parameter(Mandatory, ParameterSetName = 'At')]
   [string]$Prompt,
 
   [Parameter(ParameterSetName = 'Delay')]
@@ -27,6 +30,7 @@ param(
 
   [string[]]$EnvOverrides = @(),
 
+  [Parameter(Mandatory, ParameterSetName = 'Cancel')]
   [string]$Cancel
 )
 
@@ -134,6 +138,10 @@ if ($PSCmdlet.ParameterSetName -eq 'At') {
 # give it at least a minute of headroom rather than letting a near-zero delay race the clock.
 $minFireTime = (Get-Date).AddSeconds(45)
 if ($fireTime -lt $minFireTime) { $fireTime = $minFireTime }
+# /st takes HH:mm only, so truncating the seconds could land the start time in the past (the task
+# then never fires). Round up to the next whole minute instead.
+$truncated = $fireTime.AddTicks(-($fireTime.Ticks % [TimeSpan]::TicksPerMinute))
+if ($truncated -lt $fireTime) { $fireTime = $truncated.AddMinutes(1) }
 
 if ([string]::IsNullOrWhiteSpace($TaskName)) {
   $TaskName = "MindAtticWakeup-$Cli-$(Get-Date -Format 'yyyyMMddHHmmssfff')"
@@ -164,6 +172,7 @@ $promptB64 = [System.Convert]::ToBase64String($promptBytes)
 # Extra args, if any, are rendered as individual quoted literals joined by spaces so they splat
 # onto the call as separate arguments (NOT a PowerShell array-literal comma list).
 $extraArgsLiteral = ($ExtraCliArgs | ForEach-Object { "'" + ($_ -replace "'", "''") + "'" }) -join ' '
+if ($extraArgsLiteral) { $extraArgsLiteral = " $extraArgsLiteral" }  # leading space only when there are args
 # Piped through Out-File -Encoding utf8 rather than the native *>> redirection operator: in
 # Windows PowerShell 5.1, *>> writes a native command's captured output using a different default
 # encoding than Set-Content/Add-Content's own ANSI default, so the two interleave as mixed-encoding
@@ -171,12 +180,11 @@ $extraArgsLiteral = ($ExtraCliArgs | ForEach-Object { "'" + ($_ -replace "'", "'
 # one explicit -Encoding utf8 sink keeps the whole log file consistent.
 $sink = "Out-File -FilePath `$logFile -Append -Encoding utf8"
 switch ($Cli) {
-  'claude' { $invokeLine = "& claude -p `$prompt $extraArgsLiteral 2>&1 | $sink" }
-  'codex'  { $invokeLine = "& codex exec -C '$($WorkDir -replace "'", "''")' `$prompt $extraArgsLiteral 2>&1 | $sink" }
-  'kimi'   { $invokeLine = "& kimi -p `$prompt $extraArgsLiteral 2>&1 | $sink" }
-  'agy'    { $invokeLine = "& agy -p `$prompt $extraArgsLiteral 2>&1 | $sink" }
+  'claude' { $invokeLine = "& claude -p `$prompt$extraArgsLiteral 2>&1 | $sink" }
+  'codex'  { $invokeLine = "& codex exec -C '$($WorkDir -replace "'", "''")' `$prompt$extraArgsLiteral 2>&1 | $sink" }
+  'kimi'   { $invokeLine = "& kimi -p `$prompt$extraArgsLiteral 2>&1 | $sink" }
+  'agy'    { $invokeLine = "& agy -p `$prompt$extraArgsLiteral 2>&1 | $sink" }
 }
-$invokeLine = $invokeLine -replace '\s{2,}', ' '  # tidy up the double space left when $extraArgsLiteral is empty
 
 $envLines = ($EnvOverrides | ForEach-Object {
   $k, $v = $_.Split('=', 2)

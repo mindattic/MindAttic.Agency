@@ -105,9 +105,12 @@ if (-not $SkipGitHub) {
         Write-Host "[adopt] Pages on for $slug (build_type=workflow)"
     }
     $homepage = gh repo view $slug --json homepageUrl --jq .homepageUrl
-    if (-not $homepage -and $PSCmdlet.ShouldProcess($slug, "set homepage to $siteUrl")) {
+    if ($LASTEXITCODE) {
+        Write-Warning "[adopt] gh repo view $slug failed (exit $LASTEXITCODE); homepage not checked or set"
+    } elseif (-not $homepage -and $PSCmdlet.ShouldProcess($slug, "set homepage to $siteUrl")) {
         gh repo edit $slug --homepage $siteUrl | Out-Null
-        Write-Host "[adopt] homepage -> $siteUrl"
+        if ($LASTEXITCODE) { Write-Warning "[adopt] gh repo edit $slug --homepage failed (exit $LASTEXITCODE); homepage not set" }
+        else { Write-Host "[adopt] homepage -> $siteUrl" }
     } elseif ($homepage -and $homepage -ne $siteUrl) {
         Write-Host "[adopt] homepage left as $homepage"
     }

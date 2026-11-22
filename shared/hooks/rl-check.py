@@ -4,11 +4,13 @@ Rate limit status banner — reads from ~/.claude/rl-status.json
 Shows cached status at session startup. Updated by the rate-limit-monitor skill.
 """
 import json
+import os
 import sys
 from pathlib import Path
 from datetime import datetime
 
-STATUS_FILE = Path.home() / ".claude" / "rl-status.json"
+# rl-status.json is per login: it lives in that login's Claude home ($CLAUDE_CONFIG_DIR, else ~/.claude).
+STATUS_FILE = Path(os.environ.get("CLAUDE_CONFIG_DIR") or (Path.home() / ".claude")).expanduser() / "rl-status.json"
 
 def color(text, code):
     return f"\033[{code}m{text}\033[0m"
@@ -31,7 +33,10 @@ def main():
         print(color("  [RATE LIMIT] Could not read status cache.", "33"))
         return
 
-    pct = s.get("percent_used", 0)
+    try:
+        pct = float(s.get("percent_used") or 0)
+    except (TypeError, ValueError):
+        pct = 0.0
     reset = s.get("reset_time", "unknown")
     tokens_left = s.get("tokens_remaining", "?")
     cached_at = s.get("timestamp", "")

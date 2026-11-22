@@ -1,0 +1,27 @@
+{
+  "_comment": "/flush ssd|hdd|hd sources (MAT-T165). Add a new kind of cruft here, not in flush-disk.ps1. paths expand %VARS% and * wildcards. default=true groups are offered by default; the rest are opt-in. minAgeHours keeps recently written files. admin=true needs an Administrator window.",
+  "sources": [
+    { "group": "temp",       "default": true,  "name": "Temp folders (MindAttic-connected entries kept)", "kind": "temp" },
+    { "group": "dumps",      "default": true,  "name": "App crash dumps",            "paths": ["%LOCALAPPDATA%\\CrashDumps", "%LOCALAPPDATA%\\*\\CrashDumps", "%LOCALAPPDATA%\\*\\*\\CrashDumps", "%APPDATA%\\*\\CrashDumps"] },
+    { "group": "dumps",      "default": true,  "name": "Windows Error Reporting",    "paths": ["%LOCALAPPDATA%\\Microsoft\\Windows\\WER", "%ProgramData%\\Microsoft\\Windows\\WER\\ReportArchive", "%ProgramData%\\Microsoft\\Windows\\WER\\ReportQueue"] },
+    { "group": "dumps",      "default": true,  "name": "Kernel dumps",               "paths": ["%WINDIR%\\Minidump", "%WINDIR%\\LiveKernelReports", "%WINDIR%\\MEMORY.DMP"], "admin": true },
+    { "group": "recyclebin", "default": true,  "name": "Recycle Bin (every drive)",  "kind": "recyclebin" },
+    { "group": "updates",    "default": true,  "name": "Windows Update downloads",   "paths": ["%WINDIR%\\SoftwareDistribution\\Download"], "admin": true, "minAgeHours": 168 },
+    { "group": "updates",    "default": true,  "name": "Delivery Optimization cache", "paths": ["%WINDIR%\\ServiceProfiles\\NetworkService\\AppData\\Local\\Microsoft\\Windows\\DeliveryOptimization\\Cache"], "admin": true },
+    { "group": "logs",       "default": false, "name": "Windows CBS/DISM logs",      "paths": ["%WINDIR%\\Logs\\CBS", "%WINDIR%\\Logs\\DISM"], "admin": true, "minAgeHours": 168 },
+    { "group": "shaders",    "default": false, "name": "GPU shader caches (games rebuild them on next launch)", "paths": [
+        "%LOCALAPPDATA%\\NVIDIA\\DXCache", "%LOCALAPPDATA%\\NVIDIA\\GLCache", "%LOCALAPPDATA%\\D3DSCache",
+        "%LOCALAPPDATA%\\AMD\\DxCache", "%LOCALAPPDATA%\\AMD\\DxcCache", "%LOCALAPPDATA%\\AMD\\VkCache"], "minAgeHours": 72 },
+    { "group": "caches",     "default": false, "name": "npm cache",                  "paths": ["%LOCALAPPDATA%\\npm-cache"], "minAgeHours": 720 },
+    { "group": "caches",     "default": false, "name": "pip cache",                  "paths": ["%LOCALAPPDATA%\\pip\\Cache"], "minAgeHours": 720 },
+    { "group": "caches",     "default": false, "name": "Yarn cache",                 "paths": ["%LOCALAPPDATA%\\Yarn\\Cache"], "minAgeHours": 720 },
+    { "group": "caches",     "default": false, "name": "NuGet HTTP cache",           "paths": ["%LOCALAPPDATA%\\NuGet\\v3-cache", "%LOCALAPPDATA%\\NuGet\\plugins-cache"], "minAgeHours": 720 },
+    { "group": "browsers",   "default": false, "name": "Chrome/Edge/Brave caches",   "paths": [
+        "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\*\\Cache", "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\*\\Code Cache", "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\*\\GPUCache",
+        "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\*\\Cache", "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\*\\Code Cache", "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\*\\GPUCache",
+        "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data\\*\\Cache", "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data\\*\\Code Cache"] },
+    { "group": "apps",       "default": false, "name": "Electron app caches (Discord, Slack, Teams, VS Code)", "paths": [
+        "%APPDATA%\\discord\\Cache", "%APPDATA%\\discord\\Code Cache", "%APPDATA%\\Slack\\Cache", "%APPDATA%\\Slack\\Code Cache",
+        "%APPDATA%\\Microsoft\\Teams\\Cache", "%APPDATA%\\Code\\Cache", "%APPDATA%\\Code\\CachedData", "%APPDATA%\\Code\\CachedExtensionVSIXs"], "minAgeHours": 72 }
+  ]
+}

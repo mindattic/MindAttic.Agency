@@ -101,29 +101,33 @@ function CopyAsset([string]$rel) {
     $script:copied[$rel] = $true
 }
 
+# The resolved path is unescaped (to find the file on disk); escape each segment again for the link.
+function UrlPath([string]$p) { (@($p -split '/') | ForEach-Object { [Uri]::EscapeDataString($_) }) -join '/' }
+
 function RewriteTarget([string]$target, [string]$srcRel, [string]$stagedRel) {
-    if ($target -match '^(?i)([a-z][a-z0-9+.-]*:|#|/|~)') { return $target }
+    # "/x" is root-relative (resolved against the repo root below); "//host" is protocol-relative and left alone.
+    if ($target -match '^(?i)([a-z][a-z0-9+.-]*:|#|//|~)') { return $target }
     $suffix = ''
     $m = [regex]::Match($target, '[#?].*$')
     if ($m.Success) { $suffix = $m.Value; $target = $target.Substring(0, $m.Index) }
     if (-not $target) { return $suffix }
-    $srcDir = if ($srcRel.Contains('/')) { $srcRel.Substring(0, $srcRel.LastIndexOf('/')) } else { '' }
+    $srcDir = if ($target.StartsWith('/')) { '' } elseif ($srcRel.Contains('/')) { $srcRel.Substring(0, $srcRel.LastIndexOf('/')) } else { '' }
     $rel = NormalizeRel ((@($srcDir, [Uri]::UnescapeDataString($target)) | Where-Object { $_ }) -join '/')
     if ($null -eq $rel) { return $null }
     $stagedDir = if ($stagedRel.Contains('/')) { $stagedRel.Substring(0, $stagedRel.LastIndexOf('/')) } else { '' }
 
-    if ($pages.Contains($rel)) { return (RelativeTo $stagedDir $pages[$rel]) + $suffix }
+    if ($pages.Contains($rel)) { return (UrlPath (RelativeTo $stagedDir $pages[$rel])) + $suffix }
     $full = Join-Path $Root $rel
     if (Test-Path -LiteralPath $full -PathType Leaf) {
         if ($AssetExt -contains [IO.Path]::GetExtension($rel).ToLowerInvariant()) {
             CopyAsset $rel
-            return (RelativeTo $stagedDir $rel) + $suffix
+            return (UrlPath (RelativeTo $stagedDir $rel)) + $suffix
         }
-        return "$BlobBase/blob/$Branch/$rel$suffix"
+        return "$BlobBase/blob/$Branch/$(UrlPath $rel)$suffix"
     }
     if (Test-Path -LiteralPath $full -PathType Container) {
         if ($rel -eq '') { return "$BlobBase$suffix" }
-        return "$BlobBase/tree/$Branch/$rel$suffix"
+        return "$BlobBase/tree/$Branch/$(UrlPath $rel)$suffix"
     }
     $target + $suffix
 }
@@ -191,7 +195,7 @@ function TocLines([string]$dirRel, [int]$indent) {
     $here = @($docPages | Where-Object { (Split-Path -Parent ($_ -replace '/', '\')) -replace '\\', '/' -eq $dirRel })
     foreach ($p in $here) {
         "$pad- name: $(YamlStr (FirstHeading (Join-Path $Root $p)))"
-        "$pad  href: $(RelativeTo 'docs' $p)"
+        "$pad  href: $(YamlStr (RelativeTo 'docs' $p))"
     }
     $subs = @($docPages | Where-Object { $_.StartsWith("$dirRel/") } |
         ForEach-Object { $_.Substring($dirRel.Length + 1).Split('/')[0] } |

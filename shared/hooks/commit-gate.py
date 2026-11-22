@@ -116,7 +116,54 @@ def write_json(p, value):
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     tmp = Path(str(p) + "." + str(os.getpid()) + ".tmp")
     tmp.write_text(json.dumps(value), encoding="utf-8")
-    os.replace(tmp, p)
+    for i in range(20):   # Windows: a reader or scanner holding p for a moment makes the replace fail; retry briefly
+        try:
+            os.replace(tmp, p)
+            return
+        except PermissionError:
+            if i == 19:
+                raise
+            time.sleep(0.02)
+
+class locked:
+    """`with locked(p):` holds <p>.lock (O_EXCL) around a read-modify-write of p, so parallel hooks don't lose each
+    other's entries. Waits up to ~5 s; a lock older than 10 s is a dead hook's and is broken. On timeout it goes ahead
+    unlocked (fail open: a lost entry beats a stuck CLI)."""
+    def __init__(self, p, wait=5.0, stale=10.0):
+        self.lock, self.wait, self.stale, self.fd = str(p) + ".lock", wait, stale, None
+    def __enter__(self):
+        try:
+            STATE_DIR.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+        deadline = now() + self.wait
+        while True:
+            try:
+                self.fd = os.open(self.lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                return self
+            except (FileExistsError, PermissionError):   # Windows: a lock being deleted right now is PermissionError
+                try:
+                    if now() - os.stat(self.lock).st_mtime > self.stale:
+                        os.unlink(self.lock)
+                        continue
+                except Exception:
+                    pass
+            except Exception:
+                return self   # can't lock here at all: go ahead
+            if now() >= deadline:
+                return self
+            time.sleep(0.01)
+    def __exit__(self, *exc):
+        if self.fd is not None:
+            try:
+                os.close(self.fd)
+            except Exception:
+                pass
+            try:
+                os.unlink(self.lock)
+            except Exception:
+                pass
+        return False
 
 def actor_key(sid, agent):
     return f"{sid or '?'}/{agent or 'main'}"
@@ -154,13 +201,14 @@ def append_events(root, events):
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     p = log_path(root)
     data = "".join(json.dumps(e, separators=(",", ":")) + "\n" for e in events)
-    with open(p, "a", encoding="utf-8") as f:
-        f.write(data)
-    try:
-        if p.stat().st_size > LOG_MAX:
-            compact(p)
-    except Exception:
-        pass
+    with locked(p):   # compact()'s replace would drop an append made between its read and its replace
+        with open(p, "a", encoding="utf-8") as f:
+            f.write(data)
+        try:
+            if p.stat().st_size > LOG_MAX:
+                compact(p)
+        except Exception:
+            pass
 
 def compact(p):
     cutoff = now() - KEEP_SECS
@@ -403,6 +451,14 @@ def close_guard(command, sid, agent, me_actor, actors):
                     "to close it anyway, rerun with MINDATTIC_FORCE_CLOSE=1 in front of the command.")
     return None
 
+EDIT_TOOLS = ("Edit", "Write", "MultiEdit", "NotebookEdit", "edit", "write_file", "replace")
+
+def edit_target(tin):
+    fp = first_str(tin.get("file_path"), tin.get("notebook_path"), tin.get("path"), tin.get("absolute_path"))
+    root = repo_root(fp) if fp else None
+    rel = rel_in(root, fp) if root else None
+    return root, rel
+
 def record_touch(root, rel, sid, agent, a):
     tid = a.get("ticket") if int(a.get("strength") or 0) >= SURE else None
     append_events(root, [{"k": "touch", "p": rel, "s": sid, "a": agent, "t": tid, "at": now()}])
@@ -483,11 +539,13 @@ def handle(data, provider="claude", event_arg=None):
         return None
     if event == "SubagentStart":
         a = load_actor(sid, agent)
-        pend = read_json(STATE_DIR / f"spawn-{safe(sid)}.json", []) or []
-        pend = [p for p in pend if now() - float(p.get("at") or 0) <= 300]
-        if pend:
-            learn_ticket(a, pend.pop(0).get("ticket"), LIKELY)
-            write_json(STATE_DIR / f"spawn-{safe(sid)}.json", pend)
+        sp = STATE_DIR / f"spawn-{safe(sid)}.json"
+        with locked(sp):
+            pend = read_json(sp, []) or []
+            pend = [p for p in pend if now() - float(p.get("at") or 0) <= 300]
+            if pend:
+                learn_ticket(a, pend.pop(0).get("ticket"), LIKELY)
+                write_json(sp, pend)
         save_actor(a)
         return None
     if event in ("SubagentStop", "SessionEnd"):
@@ -512,6 +570,12 @@ def handle(data, provider="claude", event_arg=None):
     if event == "PostToolUse":
         if tool in ("Bash", "PowerShell", "shell", "run_shell_command"):
             attribute_shell(data, sid, agent, a, all_actors())
+        elif tool in EDIT_TOOLS:
+            # Recorded only once the edit has run: an edit a later hook or a permission prompt denied never reaches
+            # PostToolUse, so it can't leave a phantom touch that blocks another agent's commit of the same path.
+            root, rel = edit_target(tin)
+            if root and rel:
+                record_touch(root, rel, sid, agent, a)
         return None
     if event != "PreToolUse":
         return None
@@ -522,21 +586,21 @@ def handle(data, provider="claude", event_arg=None):
         ids = list(dict.fromkeys(m.group(1) for m in ID_RX.finditer(text)))
         if ids:
             p = STATE_DIR / f"spawn-{safe(sid)}.json"
-            pend = [x for x in (read_json(p, []) or []) if now() - float(x.get("at") or 0) <= 300]
-            pend.append({"ticket": ids[0], "at": now()})
-            write_json(p, pend)
+            with locked(p):
+                pend = [x for x in (read_json(p, []) or []) if now() - float(x.get("at") or 0) <= 300]
+                pend.append({"ticket": ids[0], "at": now()})
+                write_json(p, pend)
         save_actor(a)
         return None
 
-    if tool in ("Edit", "Write", "MultiEdit", "NotebookEdit", "edit", "write_file", "replace"):
-        fp = first_str(tin.get("file_path"), tin.get("notebook_path"), tin.get("path"), tin.get("absolute_path"))
-        root = repo_root(fp) if fp else None
-        rel = rel_in(root, fp) if root else None
+    if tool in EDIT_TOOLS:
+        root, rel = edit_target(tin)
         save_actor(a)
         if root and rel:
             actors = all_actors()
             others = foreign_live(root, rel, me, a.get("ticket"), actors)
-            record_touch(root, rel, sid, agent, a)
+            if provider == "agy":
+                record_touch(root, rel, sid, agent, a)   # agy wires PreToolUse only: no later event to record it on
             if others:
                 o, tid = others[0]
                 out = note(provider, event,

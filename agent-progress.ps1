@@ -40,7 +40,8 @@ param(
   [switch]$Running,
   [string]$Session,
   [switch]$Json,
-  [string]$ClaudeRoot = (Join-Path $env:USERPROFILE '.claude')
+  # Default (unset): $env:CLAUDE_CONFIG_DIR, ~\.claude and every per-login ~\.claude-accounts\<login>.
+  [string]$ClaudeRoot
 )
 
 $ErrorActionPreference = 'Stop'
@@ -129,22 +130,31 @@ function Read-Agent([IO.FileInfo]$file) {
     doing = ''; finished = $false
   }
 
-  $first = $true
+  $needPrompt = $true
   $lastStop = $null
   $lastKind = $null
   foreach ($line in [IO.File]::ReadLines($file.FullName)) {
     # Only the opening prompt and assistant turns matter; skip the rest without parsing it.
-    if (-not $first -and $line.IndexOf('"type":"assistant"') -lt 0) { continue }
+    if (-not $needPrompt -and $line.IndexOf('"type":"assistant"') -lt 0) { continue }
     try { $o = $serializer.DeserializeObject($line) } catch { continue }
     $msg = Get-Field $o 'message'
     $ts = Get-Field $o 'timestamp'
-    if ($first) {
-      $first = $false
-      if ($ts) { $agent.started = [datetime]$ts }
-      $prompt = [string](Get-Field $msg 'content')
-      if ($prompt -match 'Work on ticket\s+([A-Z][A-Z0-9.]*-T\d+)') { $agent.ticket = $Matches[1] }
-      if ($prompt -match 'git worktree of [^(]+\(([^,]+),') { $agent.worktree = $Matches[1].Trim() }
-      continue
+    if ($needPrompt) {
+      if ($ts -and -not $agent.started) { $agent.started = [datetime]$ts }
+      # The opening prompt is the first "user" line with content; a fork's transcript starts with a
+      # {"type":"fork-context-ref"} line instead, and content may be a string or [{type:text,text}].
+      if ((Get-Field $o 'type') -eq 'user') {
+        $content = Get-Field $msg 'content'
+        $prompt = if ($content -is [string]) { $content } else {
+          (@($content) | Where-Object { (Get-Field $_ 'type') -eq 'text' } | ForEach-Object { [string](Get-Field $_ 'text') }) -join "`n"
+        }
+        if ($prompt) {
+          $needPrompt = $false
+          if ($prompt -match 'Work on ticket\s+([A-Z][A-Z0-9.]*-T\d+)') { $agent.ticket = $Matches[1] }
+          if ($prompt -match 'git worktree of [^(]+\(([^,]+),') { $agent.worktree = $Matches[1].Trim() }
+          continue
+        }
+      }
     }
     if ((Get-Field $o 'type') -ne 'assistant') { continue }
     $lastStop = Get-Field $msg 'stop_reason'
@@ -198,8 +208,19 @@ function Get-WorktreeState([string]$path) {
 # Dot-sourcing (the tests do) only loads the functions above.
 if ($MyInvocation.InvocationName -eq '.') { return }
 
-$projectsDir = Join-Path $ClaudeRoot 'projects'
-$files = @(Get-ChildItem -Path $projectsDir -Directory -ErrorAction SilentlyContinue |
+$claudeRoots = if ($ClaudeRoot) { @($ClaudeRoot) } else {
+  @($env:CLAUDE_CONFIG_DIR, (Join-Path $env:USERPROFILE '.claude')) +
+  @(Get-ChildItem -Path (Join-Path $env:USERPROFILE '.claude-accounts') -Directory -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
+}
+$seenRoots = @{}
+$projectsDirs = foreach ($r in $claudeRoots) {
+  if ([string]::IsNullOrWhiteSpace($r)) { continue }
+  $key = [IO.Path]::GetFullPath($r).TrimEnd('\').ToLowerInvariant()
+  if ($seenRoots.ContainsKey($key)) { continue }
+  $seenRoots[$key] = $true
+  Join-Path $r 'projects'
+}
+$files = @(Get-ChildItem -Path @($projectsDirs) -Directory -ErrorAction SilentlyContinue |
   ForEach-Object { Get-ChildItem -Path $_.FullName -Directory -ErrorAction SilentlyContinue } |
   Where-Object { -not $Session -or $_.Name.StartsWith($Session) } |
   ForEach-Object { Get-ChildItem -Path (Join-Path $_.FullName 'subagents') -Filter 'agent-*.jsonl' -File -ErrorAction SilentlyContinue } |

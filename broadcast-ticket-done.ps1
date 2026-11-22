@@ -76,10 +76,13 @@ $sent = 0
 foreach ($p in $targets) {
     $proc = Get-Process -Id $p -ErrorAction SilentlyContinue
     if (-not $proc) { continue }   # state.json is stale; that pid is gone
-    $path = Join-Path $marksDir "nudge-$p-ticket-done.txt"
+    # One file per ticket, so a second close before the CLI's next turn doesn't overwrite the first;
+    # context-gate.py's take_nudges() globs nudge-<pid>-*.txt, so it still picks these up.
+    $safeId = $TicketId -replace '[^A-Za-z0-9.]', '_'
+    $path = Join-Path $marksDir "nudge-$p-ticket-done-$safeId.txt"
     $temp = "$path.tmp"
     try {
-        [System.IO.File]::WriteAllText($temp, $text, [System.Text.Encoding]::UTF8)
+        [System.IO.File]::WriteAllText($temp, $text, (New-Object System.Text.UTF8Encoding $false))
         Move-Item -Force $temp $path
         $sent++
     } catch {

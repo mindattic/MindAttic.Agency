@@ -33,7 +33,9 @@ REFUSAL = ("GOLDEN RULE (MAT-T121): test suites and soaks run only when the user
 
 # ---- what the user asked for -------------------------------------------------------------------------------------
 
-NEGATION = re.compile(r"\b(?:don'?t|do\s+not|never|no\s+need\s+to|not|without|skip|stop|avoid|instead\s+of)\b[\w\s,'-]{0,24}$", re.I)
+# The negation must sit right before "run", one filler word at most ("don't run", "do not you run"), so "don't forget
+# to run the tests", "never mind, run the tests" and "don't commit until you run the tests" still ask.
+NEGATION = re.compile(r"\b(?:don['’]?t|do\s+not|never|no\s+need\s+to|skip|avoid)\s+(?:\w+\s+)?$", re.I)
 ASK_PHRASES = [
     # "run tests", "run the tests", "run all the tests", "run the unit tests", "run the full test suite", "rerun tests"
     re.compile(r"\b(?:re-?)?run\s+(?:the\s+|all\s+(?:of\s+)?(?:the\s+)?|my\s+|our\s+)?(?:full\s+|whole\s+|entire\s+|unit\s+|core\s+)*"
@@ -56,7 +58,7 @@ def asks_for_tests(prompt):
     if re.search(r"<command-name>\s*/?run\s*</command-name>.*?<command-args>\s*tests?\s*</command-args>", text, re.I | re.S):
         return True
     # A spoken request, outside quotes and code.
-    plain = re.sub(r"```.*?```|`[^`\n]*`|\"[^\"\n]*\"|<[^>\n]+>", " ", text, flags=re.S)
+    plain = re.sub(r"```.*?```|`[^`\n]*`|\"[^\"\n]*\"|“[^”\n]*”|<[^>\n]+>", " ", text, flags=re.S)
     for rx in ASK_PHRASES:
         for m in rx.finditer(plain):
             if not NEGATION.search(plain[max(0, m.start() - 40):m.start()]):
@@ -100,13 +102,17 @@ WRAPPERS = [
     r"\.\s+(?=\S)",                                         # dot-sourcing
     r"(?:call|time|exec|nohup|start(?:\s+/\w+)*)\s+",
     r"env(?:\s+-\S+)*\s+",
+    r"timeout(?:\s+-[sk]\s+\S+|\s+-\S+)*\s+\d[\w.]*\s+",           # timeout [-s SIG] [-k T] DURATION cmd
+    r"nice(?:\s+-n\s*\S+|\s+-\S+)*\s+",
+    r"stdbuf(?:\s+-\S+)*\s+",
+    r"xvfb-run(?:\s+-[efnpsw]\s+(?:\"[^\"]*\"|'[^']*'|\S+)|\s+-\S+)*\s+",
     r"[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|\S*)\s+",  # VAR=x cmd
     r"\$env:[A-Za-z_][A-Za-z0-9_]*\s*=\s*(?:\"[^\"]*\"|'[^']*'|\S*)\s*",
     r"cmd(?:\.exe)?\s+/[ckCK]\s+",
     r"(?:powershell|pwsh)(?:\.exe)?(?:\s+-(?:NoProfile|nop|NoLogo|NonInteractive|noni|NoExit|Sta|Mta)\b"
     r"|\s+-(?:ExecutionPolicy|ep|ex|WindowStyle|w|WorkingDirectory|wd|OutputFormat|of|InputFormat|if|Version|v)\s+\S+)*"
     r"(?:\s+-(?:c|command|file|f)\b)?\s+(?=[^\s-])",
-    r"(?:python[\d.]*|py|node|ruby|perl)(?:\.exe)?(?:\s+-(?!m\b)[A-Za-z]+\b)*\s+(?=[^\s-])",  # interpreter running a script
+    r"(?:python[\d.]*|py|node|ruby|perl)(?:\.exe)?(?:\s+-[XW]\s*\S+|\s+-(?![mXW]\b)[A-Za-z]+\b)*\s+(?=[^\s-])",  # interpreter running a script
     r"(?:ba|z|da)?sh(?:\.exe)?(?:\s+-\w*c\w*|\s+-[a-z]+)*\s+(?=[\"'])",
     r"(?:ba|z|da)?sh(?:\.exe)?\s+(?=\S+\.sh\b)",
     r"(?:npx|pnpx|bunx)(?:\.cmd)?(?:\s+-\S+)*\s+",
@@ -119,21 +125,67 @@ def strip_bodies(command):
     c = re.sub(r"<<-?\s*([\"']?)(\w+)\1[^\n]*\n.*?\n\s*\2\s*(?=\n|$)", "\n", command, flags=re.S)
     return re.sub(r"@([\"'])\s*\n.*?\n\1@", "\n", c, flags=re.S)
 
+# A shell wrapper's quoted script is commands, not data: `cmd /c "cd x & dotnet test"`, `bash -lc 'dotnet test'`,
+# `pwsh -Command "..."`. unwrap_shells() lifts that body out onto its own lines before quoted text is masked.
+SHELL_BODY_RX = re.compile(
+    r"(?<![\w.-])(?:cmd(?:\.exe)?\s+/[ckCK]"
+    r"|(?:ba|z|da)?sh(?:\.exe)?(?:\s+-\w+)*?\s+-\w*c\w*"
+    r"|(?:powershell|pwsh)(?:\.exe)?(?:\s+-\S+(?:\s+(?!-)[^\s\"']+)?)*?\s+-(?:c|command))"
+    r"\s+(?:\"([^\"]*)\"|'([^']*)')", re.I)
+# Quoted strings (an opening quote never follows a word character, so "don't" opens nothing; an unclosed one is literal).
+QUOTED_RX = re.compile(r"(?<!\w)\"[^\"]*\"|(?<!\w)'[^']*'(?!\w)")
+SEP_RX = re.compile(r"[;\n|]|&&|(?<![<>&])&(?![>&])|\$\(|\b(?:then|do|else)\b")
+
+def unwrap_shells(command):
+    for _ in range(4):
+        new = SHELL_BODY_RX.sub(lambda m: "\n" + (m.group(1) if m.group(1) is not None else m.group(2)) + "\n", command)
+        if new == command:
+            break
+        command = new
+    return command
+
+def mask_quotes(command):
+    """The command with every quoted string's contents blanked (same length, quotes kept), so a separator inside a
+    commit message never splits it; a "$(...)" inside double quotes stays, since it runs."""
+    def blank(m):
+        s = m.group(0)
+        body = s[1:-1]
+        if s[0] == '"':
+            body = re.sub(r"\$\([^)]*\)?|.", lambda x: x.group(0) if x.group(0).startswith("$(") else " ", body, flags=re.S)
+        else:
+            body = " " * len(body)
+        return s[0] + body + s[-1]
+    return QUOTED_RX.sub(blank, command)
+
+def split_commands(command):
+    text = unwrap_shells(strip_bodies(command))
+    masked = mask_quotes(text)
+    start = 0
+    for m in SEP_RX.finditer(masked):
+        yield text[start:m.start()]
+        start = m.end()
+    yield text[start:]
+
 def segments(command):
     """Each command a shell call runs, wrappers stripped and the program's leading path dropped, so patterns can
     match at the start: 'cd x && "C:/Program Files/dotnet/dotnet.exe" test' yields 'cd x' and 'dotnet.exe" test'."""
-    for raw in re.split(r"[;\n|]|&&|\$\(|\b(?:then|do|else)\b", strip_bodies(command)):
+    for raw in split_commands(command):
         seg = raw
+        quoted = False   # did the program name start with a quote (so its path may hold spaces)?
         for _ in range(12):
             m = WRAPPER_RX.match(seg)
             if not m or m.end() == 0:
                 break
+            quoted = bool(re.fullmatch(r"\s*[\"'`(){}]*[\"']", seg[:m.end()]))
             seg = seg[m.end():]
         seg = seg.strip()
         if not seg:
             continue
-        # Drop the program's directory: C:\x\dotnet.exe -> dotnet.exe, ./tools/test.ps1 -> test.ps1, even quoted with spaces.
-        m = re.match(r"(?:[A-Za-z]:)?(?:[^\s\\/\"']*[\\/]|[^\\/\"'\n]*[\\/](?=[^\"'\n]*[\"']))+", seg)
+        # Drop the program's directory: C:\x\dotnet.exe -> dotnet.exe, ./tools/test.ps1 -> test.ps1, and a quoted
+        # "C:/Program Files/x/dotnet.exe" even with spaces (only when quoted: an unquoted path ends at a space).
+        path_rx = (r"(?:[A-Za-z]:)?(?:[^\s\\/\"']*[\\/]|[^\\/\"'\n]*[\\/](?=[^\"'\n]*[\"']))+" if quoted
+                   else r"(?:[A-Za-z]:)?(?:[^\s\\/\"']*[\\/])+")
+        m = re.match(path_rx, seg)
         if m and (m.end() < len(seg)):
             seg = seg[m.end():]
         yield seg
@@ -152,7 +204,20 @@ def command_of(tool_input):
     for key in ("command", "cmd", "script"):
         v = tool_input.get(key)
         if isinstance(v, list):
-            v = " ".join(str(x) for x in v)
+            v = [str(x) for x in v]
+            # ["bash", "-lc", "dotnet test"] / ["cmd", "/c", ...] / ["pwsh", "-Command", ...]: the script is the command.
+            shell = re.sub(r"(?i)\.exe$", "", re.split(r"[\\/]", v[0])[-1]).lower() if v else ""
+            flag = None
+            for i, x in enumerate(v[1:], 1):
+                if ((shell in ("bash", "sh", "zsh", "dash") and re.fullmatch(r"-\w*c\w*", x))
+                        or (shell == "cmd" and re.fullmatch(r"(?i)/[ck]", x))
+                        or (shell in ("powershell", "pwsh") and re.fullmatch(r"(?i)-(?:c|command)", x))):
+                    flag = i
+                    break
+            if flag is not None and flag + 1 < len(v):
+                v = v[flag + 1] if shell in ("bash", "sh", "zsh", "dash") else " ".join(v[flag + 1:])
+            else:
+                v = " ".join(v)
         if isinstance(v, str) and v.strip():
             return v
     return None

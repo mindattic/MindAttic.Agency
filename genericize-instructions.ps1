@@ -12,7 +12,14 @@ $stub=@('# Provider compatibility forwarder','', "Read the canonical global inst
 foreach($f in $files){
   $rel=$f.FullName.Substring(([IO.Path]::GetFullPath($WorkspaceRoot).TrimEnd('\')+'\').Length)
   $dest=Join-Path $ArchivePath ($rel -replace '[\\/:]','__')
-  if(-not (Test-Path $dest)){Set-Content -LiteralPath $dest -Value (Get-Content $f.FullName -Raw) -Encoding UTF8}
+  $content="$(Get-Content -LiteralPath $f.FullName -Raw)"
+  if(($content -replace "`r`n","`n").TrimEnd() -ceq ($stub -join "`n").TrimEnd()){continue}
+  if(Test-Path -LiteralPath $dest){
+    if("$(Get-Content -LiteralPath $dest -Raw)".TrimEnd() -cne $content.TrimEnd()){
+      $dest="$dest.$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+      Set-Content -LiteralPath $dest -Value $content -Encoding UTF8
+    }
+  } else {Set-Content -LiteralPath $dest -Value $content -Encoding UTF8}
   Set-Content -LiteralPath $f.FullName -Value $stub -Encoding UTF8
 }
 Write-Output "genericized=$($files.Count)"

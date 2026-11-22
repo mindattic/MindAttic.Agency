@@ -69,6 +69,8 @@ if (-not $NoRestartLauncher) {
     # would strip the exe AND the first argument when the exe path was quoted, so a bare one-word
     # subcommand with no further args (e.g. "... .exe" version) would wrongly look argument-less
     # and get killed as if it were the menu (MAT-T77, ported from the workspace mirror).
+    # A $null CommandLine (an elevated process we can't read) is unknown, not argument-less: leave it alone.
+    if ($null -eq $_.CommandLine) { return $false }
     $rest = $_.CommandLine -replace '^\s*(?:"[^"]+"|\S+)\s*', ''
     [string]::IsNullOrWhiteSpace($rest)
   })
