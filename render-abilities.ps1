@@ -97,6 +97,33 @@
       `$ARGUMENTS` is rewritten to plain-English guidance in the rendered body instead of being
       left as dead, never-substituted text.
 
+    ROLES (M.ORCH-T1930, roadmap Phase 1 of M.ORCH-T1740): shared/roles/<role>.md is the one
+    source of truth for MindAttic's subagent roles (planner, reviewer, ...), in ECC-style
+    frontmatter - the same flat, one-value-per-line shape abilities use (the # notes below are
+    for this help only; the parser does not strip comments):
+
+        ---
+        name: reviewer                  # required; lowercase-hyphenated, must equal the file name
+        description: Reviews a diff ... # required; what the role is for and when to pick it
+        tools: [Read, Grep, Glob]       # optional; omitted = every tool the CLI has. A read-only
+                                        #   role (every reviewer) is read-only by this list alone
+        model: sonnet                   # optional; inherit|sonnet|opus|haiku|fable (default inherit)
+        effort: medium                  # optional; low|medium|high|xhigh|max (default: the CLI's)
+        ---
+        <body: the role's system prompt, plain Markdown>
+
+    shared/roles/README.md documents this and is not a role. A file that breaks the format is
+    skipped with a warning naming what's wrong, so one bad role never blocks the rest of a render.
+
+    - Claude: each role renders to $GlobalClaudeRoot\agents\<role>.md (Claude Code's own subagent
+      definition shape: name, description, comma-separated tools, model, effort, then the body as
+      the system prompt), MD5-compared and backed up before an overwrite, same as commands.
+      Every login already shares that folder: the Orchestrator links each login's agents\ to it
+      (AccountDirs.SharedDirectories), exactly as it does commands\.
+    - Codex, Kimi, agy: no subagent-definition folder is confirmed for any of them yet, so roles
+      are not rendered there (said once per run) - add a branch here once one is confirmed live,
+      the way MAT-T98 confirmed each CLI's skills folder.
+
 .PARAMETER WorkspaceRoot
     The MindAttic workspace root. Defaults to this script's own parent's parent, same convention
     install.ps1/share-scripts.ps1 use.
@@ -137,6 +164,7 @@ $ErrorActionPreference = 'Stop'
 if ([string]::IsNullOrWhiteSpace($WorkspaceRoot)) { $WorkspaceRoot = Split-Path -Parent $PSScriptRoot }
 $abilitiesDir = Join-Path $PSScriptRoot 'shared\abilities'
 $commandsDir = Join-Path $PSScriptRoot 'shared\commands'
+$rolesDir = Join-Path $PSScriptRoot 'shared\roles'
 $utf8 = New-Object System.Text.UTF8Encoding $false
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 
@@ -165,11 +193,11 @@ function ConvertTo-AgyModelActivatedText([string]$text) {
 
 # ── Parse a shared/abilities/<name>.md file into a structured object ────────────────────────────
 # Not full YAML - just enough for this flat, one-value-per-line frontmatter shape.
-function Read-Ability {
-    param([System.IO.FileInfo]$File)
+function Read-FrontmatterFile {
+    param([System.IO.FileInfo]$File, [string]$Kind)
     $text = [IO.File]::ReadAllText($File.FullName)
     if ($text -notmatch '(?s)^---\r?\n(.*?)\r?\n---\r?\n(.*)$') {
-        throw "ability file has no frontmatter: $($File.FullName)"
+        throw "$Kind file has no frontmatter: $($File.FullName)"
     }
     $fmText = $Matches[1]
     $body = $Matches[2] -replace '^(\r?\n)+', ''
@@ -185,6 +213,14 @@ function Read-Ability {
             $fm[$key] = $val
         }
     }
+    return @{ Frontmatter = $fm; Body = $body }
+}
+
+function Read-Ability {
+    param([System.IO.FileInfo]$File)
+    $parsed = Read-FrontmatterFile -File $File -Kind 'ability'
+    $fm = $parsed.Frontmatter
+    $body = $parsed.Body
     [pscustomobject]@{
         File                         = $File
         Name                         = [string]$fm['name']
@@ -271,6 +307,90 @@ if (@($abilities | Where-Object { $_.Template }).Count -gt 0) {
     } else {
         Write-Output 'claude: member-contact skipped - shared/member-commands.ps1 not found'
     }
+}
+
+# =================================================================================================
+# Roles (M.ORCH-T1930): shared/roles/<role>.md -> $GlobalClaudeRoot\agents\<role>.md. Format in the
+# header. Codex/Kimi/agy have no confirmed subagent-definition folder yet, so Claude is the only
+# target for now.
+# =================================================================================================
+$roleModels = @('inherit', 'sonnet', 'opus', 'haiku', 'fable')
+$roleEfforts = @('low', 'medium', 'high', 'xhigh', 'max')
+
+function Read-Role {
+    param([System.IO.FileInfo]$File)
+    $parsed = Read-FrontmatterFile -File $File -Kind 'role'
+    $fm = $parsed.Frontmatter
+    $problems = [System.Collections.Generic.List[string]]::new()
+    $name = [string]$fm['name']
+    if ($name -cnotmatch '^[a-z][a-z0-9-]*$') { $problems.Add("name '$name' must be lowercase-hyphenated") }
+    elseif ($name -ne $File.BaseName) { $problems.Add("name '$name' must equal the file name '$($File.BaseName)'") }
+    $description = [string]$fm['description']
+    if ([string]::IsNullOrWhiteSpace($description)) { $problems.Add('description is required') }
+    $tools = $null
+    if ($fm.Contains('tools')) {
+        # Either [A, B] or a bare "A, B" - both mean the same list.
+        $tools = @(@($fm['tools']) | ForEach-Object { "$_" -split ',\s*' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+        if ($tools.Count -eq 0) { $problems.Add('tools is present but empty (omit it to allow every tool)') }
+    }
+    $model = if ($fm.Contains('model')) { ([string]$fm['model']).ToLowerInvariant() } else { $null }
+    if ($model -and $roleModels -notcontains $model) { $problems.Add("model '$model' is not one of $($roleModels -join '|')") }
+    $effort = if ($fm.Contains('effort')) { ([string]$fm['effort']).ToLowerInvariant() } else { $null }
+    if ($effort -and $roleEfforts -notcontains $effort) { $problems.Add("effort '$effort' is not one of $($roleEfforts -join '|')") }
+    $body = $parsed.Body.Trim()
+    if ([string]::IsNullOrWhiteSpace($body)) { $problems.Add('body (the role''s system prompt) is empty') }
+    [pscustomobject]@{
+        File        = $File
+        Name        = $name
+        Description = $description
+        Tools       = $tools
+        Model       = $model
+        Effort      = $effort
+        Body        = $body
+        Problems    = @($problems)
+    }
+}
+
+function Format-ClaudeAgent($Role) {
+    $fm = [System.Collections.Generic.List[string]]::new()
+    $fm.Add('---')
+    $fm.Add("name: $($Role.Name)")
+    $fm.Add("description: $(Format-ClaudeFrontmatterValue $Role.Description)")
+    if ($null -ne $Role.Tools) { $fm.Add("tools: $($Role.Tools -join ', ')") }
+    if ($Role.Model) { $fm.Add("model: $($Role.Model)") }
+    if ($Role.Effort) { $fm.Add("effort: $($Role.Effort)") }
+    $fm.Add('---')
+    return ($fm -join "`n") + "`n`n" + $Role.Body + "`n"
+}
+
+$roleFiles = @(if (Test-Path -LiteralPath $rolesDir) {
+    Get-ChildItem -LiteralPath $rolesDir -Filter '*.md' -File | Where-Object { $_.Name -ne 'README.md' }
+})
+$roles = [System.Collections.Generic.List[object]]::new()
+foreach ($f in $roleFiles) {
+    try { $r = Read-Role -File $f } catch { Write-Warning "roles: $($f.Name) skipped - $($_.Exception.Message)"; continue }
+    if ($r.Problems.Count -gt 0) { Write-Warning "roles: $($f.Name) skipped - $($r.Problems -join '; ')"; continue }
+    $roles.Add($r)
+}
+Write-Output "render-abilities: read $($roles.Count) roles from $rolesDir"
+
+if ($roles.Count -gt 0) {
+    $globalAgents = Join-Path $GlobalClaudeRoot 'agents'
+    New-Item -ItemType Directory -Force -Path $globalAgents | Out-Null
+    foreach ($r in ($roles | Sort-Object Name)) {
+        $content = Format-ClaudeAgent $r
+        $dest = Join-Path $globalAgents "$($r.Name).md"
+        if ((Test-Path -LiteralPath $dest) -and ([IO.File]::ReadAllText($dest) -eq $content)) { continue }
+        Write-Output "claude: ~/.claude/agents/$($r.Name).md <- shared/roles/$($r.File.Name)"
+        if ($WhatIf) { continue }
+        if (Test-Path -LiteralPath $dest) {
+            $backup = Join-Path $env:LOCALAPPDATA "MindAttic\render-abilities-backup\$stamp\claude\agents"
+            New-Item -ItemType Directory -Force -Path $backup | Out-Null
+            Copy-Item -LiteralPath $dest -Destination (Join-Path $backup "$($r.Name).md")
+        }
+        [IO.File]::WriteAllText($dest, $content, $utf8)
+    }
+    Write-Output 'roles: Codex/Kimi/agy - no confirmed subagent-definition folder yet, so roles render for Claude only'
 }
 
 # =================================================================================================

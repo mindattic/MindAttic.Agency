@@ -1,7 +1,7 @@
 ---
 name: quickload
-description: Restore a /quicksave handoff and resume exactly where it left off - this repo's latest, an archive number, or a shareable code from any login.
-argument-hint: "[handoff code, e.g. lively-oxen | archive number, e.g. 1 | omit or 0 for the live handoff]"
+description: Restore a /quicksave handoff and resume exactly where it left off - this repo's latest, an archive number, a shareable code from any login, or "all" to resume every open CLI's repo through the dashboard's Quick Load All.
+argument-hint: "[handoff code, e.g. lively-oxen | archive number, e.g. 1 | all | omit or 0 for the live handoff]"
 claude-only: false
 claude-allowed-tools: Read, PowerShell, Bash
 ---
@@ -22,6 +22,29 @@ Walk up from the current directory until you find a folder containing
 root). In an orchestrator worktree (outside the workspace), use
 `D:\Projects\MindAttic\mindattic-agent-standard\prose-agent.ps1`. If you can't find it, tell the
 user this repo isn't under a MindAttic workspace and stop.
+
+## Every open CLI - `/quickload all` (M.ORCH-T2070)
+
+`all` (any case) is not a code or a nickname: it resumes the latest quicksave in **every** open
+CLI's repo, the same as the MindAttic.Orchestrator dashboard's Quick Load All (Quicksave button's
+menu). Run:
+
+```powershell
+orchestrator quickload-all
+```
+
+It hands the request to the running dashboard, which restores the newest save state (or the newer
+session-restore autosave): any closed tab is reopened, every CLI gets `/quickload` on its repo's
+handoff (or a "carry on" when it has none), then its `/crossrepo` and `/allocate` as they were. It
+waits for the dashboard to finish and prints one line per CLI it resumed.
+
+- Relay its output to the user: how many CLIs were resumed, each resumed CLI's line, and its note.
+- This CLI is usually one of the open CLIs too, so a `/quickload` for its own repo arrives here
+  as the next prompt: when it does, run it like any other `/quickload` and carry on from it.
+- If it says no dashboard is running: tell the user there are no hosted CLIs to load into, and
+  offer to run a plain `/quickload` here instead. Don't type into other terminals yourself.
+- If it timed out waiting: say the dashboard is still working through it (its toast reports the
+  outcome), and stop.
 
 ## A handoff code or nickname - `/quickload <code>` (e.g. `/quickload lively-oxen` or `/quickload SHADOW`)
 

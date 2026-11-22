@@ -22,6 +22,25 @@ skill folder did not already pick it up, read its entry here and follow it in pl
 AGENTS.md should point here once (not done by this script - MAT-T95 leaves that one-line edit
 for a later pass).
 
+## /agent
+
+Make or manage a named agent: /agent <role> [--owner EMAIL] creates an idle agent playing that role and prints its agt- id; /agent list, pause, resume and retire <id> manage the agents already made.
+
+Run `orchestrator agents` for what `$ARGUMENTS` asks (M.ORCH-T2065, over the CLI M.ORCH-T1744 landed). An agent is a row in the orchestrator's `agents` table with a stable `agt-` id, a role, an owner login, and a state (idle, paused or terminated); making one doesn't start any work.
+
+Pick the branch from the first word of `$ARGUMENTS`:
+
+| First word | Run |
+|---|---|
+| `list` | `orchestrator agents list` with the rest passed through (`--all` adds retired agents, `--role <role>`, `--owner <email>`, `--json`) |
+| `pause`, `resume`, `retire` | `orchestrator agents <word> <id>` (the id as typed, e.g. `agt-3f9a`) |
+| anything else, taken as a role | `orchestrator agents new <role>` with the rest passed through (`--owner <email>`, `--runtime`, `--unit`, `--id`, `--json`) |
+| nothing | `orchestrator agents list`, then name the roles below in one line |
+
+The roles are the files in `mindattic-agent-standard\shared\roles` (analyst, architect, build-fixer, copywriter, designer, doc-writer, implementer, planner, release, researcher, reviewer); the command checks the name against them and refuses an unknown one, listing the valid ones. Never add `--force` unless the user asked for a role outside the catalog. Without `--owner`, the agent goes on this CLI's own login; on the global login the command asks for `--owner`, so pass it only when the user gave an email.
+
+Report the command's own result line, and for `/agent <role>` make sure the new `agt-` id is in what you say, so the user can pause, resume or retire it later. If the command fails, say its message and stop; don't retry with other flags or make the row some other way.
+
 ## /alias
 
 Attach, replace, or clear a human nickname on a pending quicksave handoff, at any time - not just at save time. /alias <type> <real-name> <alias>.
@@ -545,6 +564,36 @@ keeps its files.
    "Deleted ... GB freed" and free-space lines.
 5. Report GB freed per drive and anything skipped.
 
+## /kickstart
+
+Wake a sleeping Azure web app and its serverless SQL database so the next visit is fast. "/kickstart gadfly" wakes one app (a unique partial name is enough), "/kickstart all" wakes every app, "/kickstart" alone lists every app with its state and its database's status.
+
+Global MindAttic command (MAT-T166). MindAttic's Azure web apps run with Always On off: an app unloads
+after about 20 idle minutes, and its serverless database pauses after its auto-pause delay (60 minutes by
+default) once nothing is connected. A visit wakes both, but the first one can take a minute or two;
+`/kickstart` wakes them ahead of time and waits until both answer.
+
+Run, from any folder, with the arguments as given (`$ARGUMENTS`; empty lists):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File D:\Projects\MindAttic\mindattic-agent-standard\kickstart.ps1 $ARGUMENTS
+```
+
+It needs a signed-in `az` (if it says so, tell the user to run `! az login`). It is read-only: it only
+sends GET requests to the site and opens one `SELECT 1` connection to the database, and never changes a
+setting, a secret or a resource.
+
+Then report, briefly:
+
+- with a name or `all`: whether the app and its database are up, with how long each took, and **end your
+  reply with each app's URL alone on its own line** (bare, e.g. `https://mindattic-gadfly.azurewebsites.net`,
+  no bold, brackets or trailing punctuation) so the user can copy and paste it. Mention that the app sleeps again about 20 minutes after the last visit, and that the database
+  pauses about an hour after that, so an open browser tab keeps both awake.
+- with no argument: the listing as a short table (app, state, URL, database and its status).
+- an app reported as **Stopped** is stopped in Azure, not asleep. Don't start it yourself; give the user
+  the `az webapp start` line the script printed and let them decide.
+- if a name matches several apps or none, relay the script's list of app names and ask which one.
+
 ## /launcher
 
 Bring up this login's next Launcher tab in the MindAttic.Orchestrator dashboard (next, next, ... cycling through them), or open one when it has none. /launcher [EMAIL].
@@ -911,7 +960,7 @@ How to handle it:
 
 ## /quickload
 
-Restore a /quicksave handoff and resume exactly where it left off - this repo's latest, an archive number, or a shareable code from any login.
+Restore a /quicksave handoff and resume exactly where it left off - this repo's latest, an archive number, a shareable code from any login, or "all" to resume every open CLI's repo through the dashboard's Quick Load All.
 
 # Quickload - restore the handoff
 
@@ -930,6 +979,29 @@ Walk up from the current directory until you find a folder containing
 root). In an orchestrator worktree (outside the workspace), use
 `D:\Projects\MindAttic\mindattic-agent-standard\prose-agent.ps1`. If you can't find it, tell the
 user this repo isn't under a MindAttic workspace and stop.
+
+## Every open CLI - `/quickload all` (M.ORCH-T2070)
+
+`all` (any case) is not a code or a nickname: it resumes the latest quicksave in **every** open
+CLI's repo, the same as the MindAttic.Orchestrator dashboard's Quick Load All (Quicksave button's
+menu). Run:
+
+```powershell
+orchestrator quickload-all
+```
+
+It hands the request to the running dashboard, which restores the newest save state (or the newer
+session-restore autosave): any closed tab is reopened, every CLI gets `/quickload` on its repo's
+handoff (or a "carry on" when it has none), then its `/crossrepo` and `/allocate` as they were. It
+waits for the dashboard to finish and prints one line per CLI it resumed.
+
+- Relay its output to the user: how many CLIs were resumed, each resumed CLI's line, and its note.
+- This CLI is usually one of the open CLIs too, so a `/quickload` for its own repo arrives here
+  as the next prompt: when it does, run it like any other `/quickload` and carry on from it.
+- If it says no dashboard is running: tell the user there are no hosted CLIs to load into, and
+  offer to run a plain `/quickload` here instead. Don't type into other terminals yourself.
+- If it timed out waiting: say the dashboard is still working through it (its toast reports the
+  outcome), and stop.
 
 ## A handoff code or nickname - `/quickload <code>` (e.g. `/quickload lively-oxen` or `/quickload SHADOW`)
 
