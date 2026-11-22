@@ -184,6 +184,25 @@ before any code is written for it. No edit, commit or deploy without a ticket.
 - Every message the agent prints starts with the ticket it's about, ID and title, e.g.
   `**[M.ORCH-T844 — Rename the dashboard exe]**`, so the user always knows which task it comes from.
 
+## Work in minnows: every ticket is a tree of small tasks (M.ORCH-T1901)
+
+The owner, 2026-11-21: "stop biting off whale sized tasks and instead eat minnows until you have a whale's weight of
+work completed." Design: `MindAttic.Orchestrator\docs\WORK_UNITS.md`.
+
+- **The tree.** Tickets nest by `part-of` links: epic > feature > story > task, each carrying one `level:<x>` label
+  (`tickets ticket level <ID> epic|feature|story|task`). Only leaf tasks are worked. A ticket with open children is a
+  container, never handed to a subagent, and it closes when its last child does.
+- **The unit budget.** A task fits the Orchestrator's `UnitTokenBudget` (80k uncached tokens by default): one
+  subagent, one commit, one ticket.
+- **Filing.** New work bigger than one task is filed as a story (or feature) with its tasks under it:
+  `tickets ticket new ... --parent <ID> --level task`, or
+  `tickets ticket split <ID> --task "..." --task "..." [--sequential]`.
+- **Working.** A leaf that isn't `level:task` yet gets a plan pass first: size it, then either mark it
+  (`tickets ticket level <ID> task`) and do it, or split it and stop. A coordinator hands each subagent one task,
+  never a whole story or feature.
+- **Overrun.** Past the budget, land what is complete, split the rest into child tasks, and stop. Never hold hundreds
+  of thousands of tokens of unlanded work.
+
 ## Tests run only when the user says so
 
 Never run a test suite (or a filtered slice of one) on your own while working: a run can take 15 minutes and
@@ -278,7 +297,7 @@ The system drive filled to 1.2 MB free on 2026-11-05. Agents had left 27.6 GB of
   check free space and clean your own scratch first if you're near the floor. Never delete user files or
   another live session's outputs; report them instead.
 
-## Commits: one ticket, one story, nothing else
+## Commits: one ticket, one task, nothing else
 
 This applies to every commit, whoever makes it (`/commit`, `/allocate`, the orchestrator, a subagent, a
 manual `git commit`):
@@ -294,8 +313,8 @@ manual `git commit`):
   no separate worktrees), so the index may already hold another agent's staged files; a bare `git commit` takes
   them too. Naming the paths after `--` commits exactly those files, whatever else is staged (`git add` only new
   files first). Never `git add -A`/`git add .`, `git stash`, `git reset` or `git checkout --` in a shared checkout.
-- A commit holds the work of one ticket (and the story it belongs to) and nothing else. Two
-  tickets or stories mean two commits. Stage by explicit path, and split a file that holds hunks
+- A commit holds the work of one task (one ticket, a leaf of its story) and nothing else. Two
+  tickets or tasks mean two commits. Stage by explicit path, and split a file that holds hunks
   for different tickets (stage only that ticket's hunks). Leave anything that belongs to another
   ticket, or to no ticket of yours, unstaged.
 - The ticket database and its generated `docs/USER_STORIES.md` are the only shared files that may
