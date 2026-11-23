@@ -16,7 +16,7 @@
 .EXAMPLE
     powershell -File shared\docs-site\adopt-docs-site.ps1 -Repo MindAttic.Legion -Api
 .EXAMPLE
-    powershell -File shared\docs-site\adopt-docs-site.ps1 -Repo Claudia -WhatIf
+    powershell -File shared\docs-site\adopt-docs-site.ps1 -Repo Hardware.Claudia -WhatIf
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
