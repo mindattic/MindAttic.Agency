@@ -1,7 +1,7 @@
 ﻿{
     "standard":  "MindAttic Agent Standard",
     "protocolVersion":  "1.0",
-    "generatedAt":  "2026-11-22T02:36:27.5248387Z",
+    "generatedAt":  "2026-11-24T17:16:57.4139182Z",
     "items":  [
                   {
                       "scope":  "project",
@@ -33,34 +33,6 @@
                   },
                   {
                       "scope":  "project",
-                      "project":  "Hardware.ChiMesh",
-                      "kind":  "hook",
-                      "name":  "inject-digest",
-                      "path":  "Hardware.ChiMesh\\.claude\\hooks\\inject-digest.ps1"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "Hardware.ChiMesh",
-                      "kind":  "instructions",
-                      "name":  "CLAUDE",
-                      "path":  "Hardware.ChiMesh\\CLAUDE.md"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "Hardware.Claudia",
-                      "kind":  "hook",
-                      "name":  "inject-digest",
-                      "path":  "Hardware.Claudia\\.claude\\hooks\\inject-digest.ps1"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "Hardware.Claudia",
-                      "kind":  "instructions",
-                      "name":  "CLAUDE",
-                      "path":  "Hardware.Claudia\\CLAUDE.md"
-                  },
-                  {
-                      "scope":  "project",
                       "project":  "Corobs",
                       "kind":  "instructions",
                       "name":  "CLAUDE",
@@ -89,6 +61,27 @@
                   },
                   {
                       "scope":  "project",
+                      "project":  "Dissertation.ElenchusAtScale",
+                      "kind":  "instructions",
+                      "name":  "CLAUDE",
+                      "path":  "Dissertation.ElenchusAtScale\\CLAUDE.md"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "Dissertation.SyntheticExchangeTheory",
+                      "kind":  "hook",
+                      "name":  "quickload-on-do",
+                      "path":  "Dissertation.SyntheticExchangeTheory\\.claude\\hooks\\quickload-on-do.ps1"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "Dissertation.SyntheticExchangeTheory",
+                      "kind":  "instructions",
+                      "name":  "CLAUDE",
+                      "path":  "Dissertation.SyntheticExchangeTheory\\CLAUDE.md"
+                  },
+                  {
+                      "scope":  "project",
                       "project":  "Gadfly",
                       "kind":  "instructions",
                       "name":  "CLAUDE",
@@ -100,6 +93,62 @@
                       "kind":  "instructions",
                       "name":  "CLAUDE",
                       "path":  "GridGame.Studio\\CLAUDE.md"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "GridGame.Unity",
+                      "kind":  "command",
+                      "name":  "deploy",
+                      "path":  "GridGame.Unity\\.claude\\commands\\deploy.md"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "GridGame.Unity",
+                      "kind":  "skill",
+                      "name":  "run",
+                      "path":  "GridGame.Unity\\.claude\\skills\\run\\SKILL.md"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "GridGame.Unity",
+                      "kind":  "hook",
+                      "name":  "quickload-on-do",
+                      "path":  "GridGame.Unity\\.claude\\hooks\\quickload-on-do.ps1"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "GridGame.Unity",
+                      "kind":  "instructions",
+                      "name":  "CLAUDE",
+                      "path":  "GridGame.Unity\\CLAUDE.md"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "Hardware.ChiMesh",
+                      "kind":  "hook",
+                      "name":  "inject-digest",
+                      "path":  "Hardware.ChiMesh\\.claude\\hooks\\inject-digest.ps1"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "Hardware.ChiMesh",
+                      "kind":  "instructions",
+                      "name":  "CLAUDE",
+                      "path":  "Hardware.ChiMesh\\CLAUDE.md"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "Hardware.Claudia",
+                      "kind":  "hook",
+                      "name":  "inject-digest",
+                      "path":  "Hardware.Claudia\\.claude\\hooks\\inject-digest.ps1"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "Hardware.Claudia",
+                      "kind":  "instructions",
+                      "name":  "CLAUDE",
+                      "path":  "Hardware.Claudia\\CLAUDE.md"
                   },
                   {
                       "scope":  "project",
@@ -425,13 +474,6 @@
                   },
                   {
                       "scope":  "project",
-                      "project":  "MindAttic.Media",
-                      "kind":  "instructions",
-                      "name":  "CLAUDE",
-                      "path":  "MindAttic.Media\\CLAUDE.md"
-                  },
-                  {
-                      "scope":  "project",
                       "project":  "MindAttic.Psst",
                       "kind":  "hook",
                       "name":  "inject-digest",
@@ -464,6 +506,13 @@
                       "kind":  "instructions",
                       "name":  "CLAUDE",
                       "path":  "MindAttic.SpeechRecognition\\CLAUDE.md"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "MindAttic.Storage",
+                      "kind":  "instructions",
+                      "name":  "CLAUDE",
+                      "path":  "MindAttic.Storage\\CLAUDE.md"
                   },
                   {
                       "scope":  "project",
@@ -775,13 +824,6 @@
                   },
                   {
                       "scope":  "project",
-                      "project":  "SpaceGod",
-                      "kind":  "instructions",
-                      "name":  "CLAUDE",
-                      "path":  "SpaceGod\\CLAUDE.md"
-                  },
-                  {
-                      "scope":  "project",
                       "project":  "SpaceGod.Unity.CSharp",
                       "kind":  "hook",
                       "name":  "instant-commands",
@@ -803,6 +845,13 @@
                   },
                   {
                       "scope":  "project",
+                      "project":  "SpaceGod.Unreal",
+                      "kind":  "instructions",
+                      "name":  "CLAUDE",
+                      "path":  "SpaceGod.Unreal\\CLAUDE.md"
+                  },
+                  {
+                      "scope":  "project",
                       "project":  "SpaceGod.Unreal.Cpp",
                       "kind":  "instructions",
                       "name":  "CLAUDE",
@@ -814,20 +863,6 @@
                       "kind":  "instructions",
                       "name":  "CLAUDE",
                       "path":  "SpaceGod.Unreal.CSharp\\CLAUDE.md"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "SyntheticExchangeTheory",
-                      "kind":  "hook",
-                      "name":  "quickload-on-do",
-                      "path":  "SyntheticExchangeTheory\\.claude\\hooks\\quickload-on-do.ps1"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "SyntheticExchangeTheory",
-                      "kind":  "instructions",
-                      "name":  "CLAUDE",
-                      "path":  "SyntheticExchangeTheory\\CLAUDE.md"
                   },
                   {
                       "scope":  "project",
@@ -1017,34 +1052,6 @@
                       "kind":  "instructions",
                       "name":  "CLAUDE",
                       "path":  "Unity.Eve\\CLAUDE.md"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "Unity.GridGame",
-                      "kind":  "command",
-                      "name":  "deploy",
-                      "path":  "Unity.GridGame\\.claude\\commands\\deploy.md"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "Unity.GridGame",
-                      "kind":  "skill",
-                      "name":  "run",
-                      "path":  "Unity.GridGame\\.claude\\skills\\run\\SKILL.md"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "Unity.GridGame",
-                      "kind":  "hook",
-                      "name":  "quickload-on-do",
-                      "path":  "Unity.GridGame\\.claude\\hooks\\quickload-on-do.ps1"
-                  },
-                  {
-                      "scope":  "project",
-                      "project":  "Unity.GridGame",
-                      "kind":  "instructions",
-                      "name":  "CLAUDE",
-                      "path":  "Unity.GridGame\\CLAUDE.md"
                   },
                   {
                       "scope":  "project",
@@ -1358,6 +1365,19 @@
                       "scope":  "global",
                       "project":  "global",
                       "kind":  "command",
+                      "name":  "agent",
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\agent.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\agent.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
+                  },
+                  {
+                      "scope":  "global",
+                      "project":  "global",
+                      "kind":  "command",
                       "name":  "ak",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\ak.md"
                   },
@@ -1367,7 +1387,7 @@
                       "kind":  "command",
                       "name":  "alias",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\alias.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\alias.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\alias.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1380,7 +1400,7 @@
                       "kind":  "command",
                       "name":  "allocate",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\allocate.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\allocate.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\allocate.md",
                       "renderedFor":  [
                                           "claude"
                                       ],
@@ -1406,7 +1426,7 @@
                       "kind":  "command",
                       "name":  "broadcast-ticket-done",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\broadcast-ticket-done.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\broadcast-ticket-done.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\broadcast-ticket-done.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1419,7 +1439,7 @@
                       "kind":  "command",
                       "name":  "bughunt",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\bughunt.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\bughunt.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\bughunt.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1432,7 +1452,7 @@
                       "kind":  "command",
                       "name":  "capture",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\capture.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\capture.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\capture.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1445,7 +1465,7 @@
                       "kind":  "command",
                       "name":  "commit",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\commit.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\commit.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\commit.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1465,7 +1485,7 @@
                       "kind":  "command",
                       "name":  "crossrepo",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\crossrepo.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\crossrepo.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\crossrepo.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1478,7 +1498,7 @@
                       "kind":  "command",
                       "name":  "deploy",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\deploy.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\deploy.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\deploy.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1491,7 +1511,7 @@
                       "kind":  "command",
                       "name":  "do",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\do.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\do.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\do.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1504,7 +1524,7 @@
                       "kind":  "command",
                       "name":  "dock",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\dock.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\dock.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\dock.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1524,7 +1544,7 @@
                       "kind":  "command",
                       "name":  "flush",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\flush.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\flush.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\flush.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1537,19 +1557,12 @@
                       "kind":  "command",
                       "name":  "hey-listen",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\hey-listen.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\listen.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\listen.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
                                           "kimi"
                                       ]
-                  },
-                  {
-                      "scope":  "global",
-                      "project":  "global",
-                      "kind":  "command",
-                      "name":  "honey",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\honey.md"
                   },
                   {
                       "scope":  "global",
@@ -1564,7 +1577,7 @@
                       "kind":  "command",
                       "name":  "kickstart",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\kickstart.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\kickstart.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\kickstart.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1577,7 +1590,7 @@
                       "kind":  "command",
                       "name":  "launcher",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\launcher.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\launcher.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\launcher.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1590,7 +1603,7 @@
                       "kind":  "command",
                       "name":  "listen",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\listen.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\listen.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\listen.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1610,7 +1623,7 @@
                       "kind":  "command",
                       "name":  "org",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\org.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\org.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\org.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1623,7 +1636,7 @@
                       "kind":  "command",
                       "name":  "organization",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\organization.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\org.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\org.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1636,7 +1649,7 @@
                       "kind":  "command",
                       "name":  "pacing",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\pacing.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\pacing.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\pacing.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1654,9 +1667,29 @@
                       "scope":  "global",
                       "project":  "global",
                       "kind":  "command",
+                      "name":  "poll",
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\poll.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\poll.md",
+                      "renderedFor":  [
+                                          "claude",
+                                          "codex (shared/codex-command-catalog.md)",
+                                          "kimi"
+                                      ]
+                  },
+                  {
+                      "scope":  "global",
+                      "project":  "global",
+                      "kind":  "command",
+                      "name":  "preview",
+                      "path":  "C:\\Users\\ryand\\.claude\\commands\\preview.md"
+                  },
+                  {
+                      "scope":  "global",
+                      "project":  "global",
+                      "kind":  "command",
                       "name":  "progress",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\progress.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\progress.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\progress.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1669,7 +1702,7 @@
                       "kind":  "command",
                       "name":  "psst",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\psst.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\psst.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\psst.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1682,7 +1715,7 @@
                       "kind":  "command",
                       "name":  "publish",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\publish.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\publish.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\publish.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1695,7 +1728,7 @@
                       "kind":  "command",
                       "name":  "pull",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\pull.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\pull.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\pull.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1708,7 +1741,7 @@
                       "kind":  "command",
                       "name":  "qq",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\qq.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\qq.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\qq.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1721,7 +1754,7 @@
                       "kind":  "command",
                       "name":  "quickload",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\quickload.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\quickload.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\quickload.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1734,7 +1767,7 @@
                       "kind":  "command",
                       "name":  "quicksave",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\quicksave.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\quicksave.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\quicksave.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1747,7 +1780,7 @@
                       "kind":  "command",
                       "name":  "quicksaves",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\quicksaves.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\quicksaves.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\quicksaves.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1767,7 +1800,7 @@
                       "kind":  "command",
                       "name":  "research",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\research.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\research.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\research.md",
                       "renderedFor":  [
                                           "claude"
                                       ],
@@ -1793,7 +1826,7 @@
                       "kind":  "command",
                       "name":  "schedule-wakeup",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\schedule-wakeup.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\schedule-wakeup.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\schedule-wakeup.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1813,7 +1846,7 @@
                       "kind":  "command",
                       "name":  "test",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\test.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\test.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\test.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1826,7 +1859,7 @@
                       "kind":  "command",
                       "name":  "tests",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\tests.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\tests.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\tests.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1839,7 +1872,7 @@
                       "kind":  "command",
                       "name":  "undock",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\undock.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\undock.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\undock.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
@@ -1852,19 +1885,12 @@
                       "kind":  "command",
                       "name":  "unstuck",
                       "path":  "C:\\Users\\ryand\\.claude\\commands\\unstuck.md",
-                      "portableSource":  "mindattic-agent-standard\\shared\\abilities\\unstuck.md",
+                      "portableSource":  "MindAttic.Agency\\shared\\abilities\\unstuck.md",
                       "renderedFor":  [
                                           "claude",
                                           "codex (shared/codex-command-catalog.md)",
                                           "kimi"
                                       ]
-                  },
-                  {
-                      "scope":  "global",
-                      "project":  "global",
-                      "kind":  "command",
-                      "name":  "waffle",
-                      "path":  "C:\\Users\\ryand\\.claude\\commands\\waffle.md"
                   },
                   {
                       "scope":  "global",
@@ -1876,11 +1902,24 @@
               ],
     "abilities":  [
                       {
+                          "name":  "agent",
+                          "aliases":  [
+
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\agent.md",
+                          "claudeOnly":  false,
+                          "renderedFor":  [
+                                              "claude",
+                                              "codex (shared/codex-command-catalog.md)",
+                                              "kimi"
+                                          ]
+                      },
+                      {
                           "name":  "alias",
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\alias.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\alias.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -1893,7 +1932,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\allocate.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\allocate.md",
                           "claudeOnly":  true,
                           "renderedFor":  [
                                               "claude"
@@ -1904,7 +1943,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\broadcast-ticket-done.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\broadcast-ticket-done.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -1917,7 +1956,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\bughunt.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\bughunt.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -1930,7 +1969,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\capture.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\capture.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -1943,7 +1982,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\commit.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\commit.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -1956,7 +1995,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\crossrepo.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\crossrepo.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -1969,7 +2008,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\deploy.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\deploy.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -1982,7 +2021,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\do.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\do.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -1995,7 +2034,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\dock.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\dock.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -2008,7 +2047,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\flush.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\flush.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -2021,7 +2060,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\kickstart.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\kickstart.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -2034,7 +2073,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\launcher.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\launcher.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -2047,7 +2086,7 @@
                           "aliases":  [
                                           "hey-listen"
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\listen.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\listen.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -2060,7 +2099,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\member-contact.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\member-contact.md",
                           "claudeOnly":  true,
                           "renderedFor":  [
                                               "claude (via shared/member-commands.ps1)"
@@ -2071,7 +2110,7 @@
                           "aliases":  [
                                           "organization"
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\org.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\org.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -2084,7 +2123,20 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\pacing.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\pacing.md",
+                          "claudeOnly":  false,
+                          "renderedFor":  [
+                                              "claude",
+                                              "codex (shared/codex-command-catalog.md)",
+                                              "kimi"
+                                          ]
+                      },
+                      {
+                          "name":  "poll",
+                          "aliases":  [
+
+                                      ],
+                          "source":  "MindAttic.Agency\\shared\\abilities\\poll.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -2097,7 +2149,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\progress.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\progress.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -2110,7 +2162,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\psst.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\psst.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -2123,7 +2175,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\publish.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\publish.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -2136,7 +2188,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\pull.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\pull.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -2149,7 +2201,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\qq.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\qq.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -2162,7 +2214,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\quickload.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\quickload.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -2175,7 +2227,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\quicksave.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\quicksave.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -2188,7 +2240,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\quicksaves.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\quicksaves.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -2201,7 +2253,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\research.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\research.md",
                           "claudeOnly":  true,
                           "renderedFor":  [
                                               "claude"
@@ -2212,7 +2264,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\schedule-wakeup.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\schedule-wakeup.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -2225,7 +2277,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\test.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\test.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -2238,7 +2290,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\tests.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\tests.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -2251,7 +2303,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\undock.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\undock.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
@@ -2264,7 +2316,7 @@
                           "aliases":  [
 
                                       ],
-                          "source":  "mindattic-agent-standard\\shared\\abilities\\unstuck.md",
+                          "source":  "MindAttic.Agency\\shared\\abilities\\unstuck.md",
                           "claudeOnly":  false,
                           "renderedFor":  [
                                               "claude",
