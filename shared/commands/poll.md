@@ -84,7 +84,7 @@ machine up or wait, rather than silently treating low free space as the only pos
 
 When a hop's own check finds the resource clear: say so with the numbers, then actually run
 `--resume`'s text as the next action (it is a literal instruction, e.g. "rebuild the Socrates model
-and report" or "resume the MediaViewer build on M.MVIEW-T6") - don't just announce that you *could*
+and report" or "resume the Media.Viewer build on M.MVIEW-T6") - don't just announce that you *could*
 resume now and stop.
 
 **Tested (MAT-T194):** `/poll ram` with the machine already above its threshold reported the free-GB
