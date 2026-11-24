@@ -5,7 +5,7 @@ argument-hint: ""
 claude-only: false
 claude-allowed-tools: Bash, PowerShell
 ---
-Backed by `MindAttic.Capture`'s agent (`capture shot --self --clipboard`, M.CAPT-T77). `--self`
+Backed by `MindAttic.Media.Capture`'s agent (`capture shot --self --clipboard`, M.CAPT-T77). `--self`
 resolves the window to capture itself: `APP_EXE` (set by MindAttic.Orchestrator's launcher and
 inherited by every tab it hosts, including through a TermHost with no window of its own) wins
 first, so a CLI running as an Orchestrator tab captures the Orchestrator window; otherwise it walks
@@ -15,10 +15,10 @@ CLI runs solo.
 ## 1. Find `capture.exe`
 
 In order:
-1. `capture` on PATH (only present if `MindAttic.Capture\tools\install.ps1 -AddToPath` was used).
+1. `capture` on PATH (only present if `MindAttic.Media.Capture\tools\install.ps1 -AddToPath` was used).
 2. `%LOCALAPPDATA%\MindAttic\Capture\bin\capture.exe` (the normal installed location).
 3. Neither exists: the repo hasn't been deployed here yet. Run
-   `powershell -File D:\Projects\MindAttic\MindAttic.Capture\run.ps1` once (installs `capture.exe` and
+   `powershell -File D:\Projects\MindAttic\MindAttic.Media.Capture\run.ps1` once (installs `capture.exe` and
    `capture-tray.exe`), then retry step 1-2. If that repo isn't checked out either, say so and stop - don't
    build an ad hoc copy.
 

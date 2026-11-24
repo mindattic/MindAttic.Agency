@@ -1,7 +1,7 @@
 ﻿{
     "standard":  "MindAttic Agent Standard",
     "protocolVersion":  "1.0",
-    "generatedAt":  "2026-11-24T17:16:57.4139182Z",
+    "generatedAt":  "2026-11-24T18:45:23.2645388Z",
     "items":  [
                   {
                       "scope":  "project",
@@ -383,13 +383,6 @@
                   },
                   {
                       "scope":  "project",
-                      "project":  "MindAttic.Capture",
-                      "kind":  "instructions",
-                      "name":  "CLAUDE",
-                      "path":  "MindAttic.Capture\\CLAUDE.md"
-                  },
-                  {
-                      "scope":  "project",
                       "project":  "MindAttic.Components",
                       "kind":  "instructions",
                       "name":  "CLAUDE",
@@ -471,6 +464,13 @@
                       "kind":  "instructions",
                       "name":  "CLAUDE",
                       "path":  "MindAttic.Log\\CLAUDE.md"
+                  },
+                  {
+                      "scope":  "project",
+                      "project":  "MindAttic.Media.Capture",
+                      "kind":  "instructions",
+                      "name":  "CLAUDE",
+                      "path":  "MindAttic.Media.Capture\\CLAUDE.md"
                   },
                   {
                       "scope":  "project",
