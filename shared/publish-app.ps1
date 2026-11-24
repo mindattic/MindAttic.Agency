@@ -117,6 +117,12 @@ function Invoke-Unity([string]$repoName, [string]$project, [string]$stage) {
     $apk = Join-Path $stage $apkName
     $log = Join-Path $stage 'unity-build.log'
     New-Item -ItemType Directory -Force $stage | Out-Null
+    # Switching to Android makes Unity write its Android defaults into ProjectSettings; put every byte back after.
+    $snap = @{}
+    foreach ($f in @(Get-ChildItem (Join-Path $project 'ProjectSettings'), (Join-Path $project 'Packages') -File -ErrorAction SilentlyContinue)) {
+        $snap[$f.FullName] = [IO.File]::ReadAllBytes($f.FullName)
+    }
+    $utmpMade = -not (Test-Path (Join-Path $project '.utmp'))
     try {
         $uargs = @('-batchmode', '-nographics', '-quit', '-projectPath', $project, '-buildTarget', 'Android',
             '-executeMethod', 'MindAtticPublish.BuildApk', '-mindatticOut', $apk, '-logFile', $log)
@@ -133,7 +139,13 @@ function Invoke-Unity([string]$repoName, [string]$project, [string]$stage) {
         if ($made) { Remove-Item -Recurse -Force $editorDir, "$editorDir.meta" -ErrorAction SilentlyContinue }
         else { Remove-Item -Force (Join-Path $editorDir 'MindAtticPublish.cs'), (Join-Path $editorDir 'MindAtticPublish.cs.meta') -ErrorAction SilentlyContinue }
         if ($parentMade) { Remove-Item -Recurse -Force (Join-Path $project 'Assets\Editor'), (Join-Path $project 'Assets\Editor.meta') -ErrorAction SilentlyContinue }
+        foreach ($f in @(Get-ChildItem (Join-Path $project 'ProjectSettings'), (Join-Path $project 'Packages') -File -ErrorAction SilentlyContinue)) {
+            if (-not $snap.ContainsKey($f.FullName)) { Remove-Item -Force $f.FullName }
+        }
+        foreach ($k in $snap.Keys) { [IO.File]::WriteAllBytes($k, $snap[$k]) }
+        if ($utmpMade) { Remove-Item -Recurse -Force (Join-Path $project '.utmp') -ErrorAction SilentlyContinue }
     }
+    Get-ChildItem $stage -Directory -Filter '*_DoNotShip' | Remove-Item -Recurse -Force
 
     $info = Get-Content "$apk.json" -Raw | ConvertFrom-Json
     Remove-Item "$apk.json"
