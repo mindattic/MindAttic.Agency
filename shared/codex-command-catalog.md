@@ -840,9 +840,43 @@ with other settings. Email copies go to the `emailTo` mailbox shown by `psst pin
 
 ## /publish
 
-Build the current repo's mod, skip the whole thing if nothing actually changed, otherwise bump its version, write a player-facing changelog and README update, and publish to NexusMods and/or Thunderstore (whichever the repo is configured for) via a GitHub release that triggers CI by default.
+Deploy apps to C:/Apps/MindAttic/<repo>/Debug (/publish, /publish dev, /publish all dev) or /Release (/publish release, /publish all release; Unity games get an .apk plus a play.bat device menu); in a mod repo, bare /publish releases the mod to NexusMods/Thunderstore.
 
-Global MindAttic command for a repo that ships a mod. Supports two independent platforms, each
+## App deploys: dev and release (MAT-T202)
+
+Every app has two deployed copies on this machine:
+
+- `C:\Apps\MindAttic\<repo>\Release`: the one definitive release candidate, the copy to film running on its own.
+- `C:\Apps\MindAttic\<repo>\Debug`: the working copy.
+
+Route by the arguments:
+
+| Typed | Runs |
+|---|---|
+| `/publish` (in a repo with no `nexus.json`/`thunderstore.toml`), `/publish dev` | `publish-app.ps1 -Mode dev` |
+| `/publish release` | `publish-app.ps1 -Mode release` |
+| `/publish all dev`, `/publish all` | `publish-app.ps1 -All -Mode dev` |
+| `/publish all release` | `publish-app.ps1 -All -Mode release` |
+
+The script is `mindattic-agent-standard\shared\publish-app.ps1` (run it with
+`powershell -NoProfile -ExecutionPolicy Bypass -File <path> ...`; add `-Repo <name>` when the shell isn't inside the
+repo). It works out how to build the repo: `.agent\publish.json` if the repo has one, else a Unity project, else every
+.NET Exe/WinExe/Web project, else a `run.ps1`/`deploy.ps1` that takes `-Out`. It builds into a staging folder, stops
+anything running from the target, swaps it in, and writes `.publish.json` (mode, commit, time). `-All` walks
+`docs\workspace-repos.json` and skips libraries, mods and docs repos. Report its closing table as printed.
+
+**Unity games** come out as an Android APK (Development build for dev) with `play.json`, `play.ps1` and `play.bat`
+beside it. `play.bat` opens Android.Emulator.Suite's menu: a stats table of the flagship device profiles (iPhone 18
+Pro, 18 Pro Max, 18, iPhone Fold/Duo, Galaxy S26 Ultra, Pixel 11 Pro XL and more; iPhones are emulated on Android at
+their resolution, density, aspect and camera cutout), then Run, Reinstall or Redeploy (rebuild). One Unity build at a
+time; a project open in the Unity Editor must be closed first.
+
+App deploys don't bump versions, write changelogs or cut releases. The rest of this page is the mod flow.
+
+## Mod releases
+
+Global MindAttic command for a repo that ships a mod. A bare `/publish` in a repo with `nexus.json` or
+`thunderstore.toml` runs this flow. Supports two independent platforms, each
 gated on its own config file - a repo may have one or the other:
 
 - **NexusMods** - `nexus.json` at the repo root:
