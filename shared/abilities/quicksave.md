@@ -37,6 +37,9 @@ nickname itself is set as a real alias in step 4, not just embedded in the text.
 - **Decisions** - what is settled and must not be re-litigated.
 - **State** - what's done, what's in flight, the last action and its result.
 - **Next** - the next concrete steps, numbered, the very next action first.
+- **Tickets** - the IDs of every ticket this session worked on (e.g. `MAT-T219,M.ORCH-T1611`). A
+  quicksave saves a set of tickets and their progress (MAT-T219): `/quicksaves` marks it DONE once
+  every one of them is closed, so list them all.
 
 ## 3. Save it
 
@@ -45,10 +48,15 @@ inside them):
 
 ```powershell
 & <workspace-root>\mindattic-agent-standard\prose-agent.ps1 save -RepoRoot (Get-Location) `
-  -Task '<task>' -Decisions '<decisions>' -State '<state>' -Next '<next>'
+  -Tickets '<ID>,<ID>' -Task '<task>' -Decisions '<decisions>' -State '<state>' -Next '<next>'
 ```
 
-It prints the handoff code it picked.
+It prints the handoff code it picked and the tickets it recorded (a `tickets` array in the handoff
+and its registry entry). Left out, `-Tickets` is filled from the ticket IDs named in Task, State and
+Next. IDs that aren't in the ticket database are dropped with a warning, and the save is refused
+(exit code 2) when no real ticket is left. Only when the session truly worked on no ticket (pure
+research, say), pass `-NoTickets` instead of `-Tickets` and say why in **Task**; it records
+`tickets: []`.
 
 ## 4. Alias it, if `$ARGUMENTS` was non-empty (MAT-T110)
 

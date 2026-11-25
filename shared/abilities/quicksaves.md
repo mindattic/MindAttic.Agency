@@ -36,6 +36,14 @@ This returns every unconsumed handoff, newest first, as JSON objects with at lea
 - **`description`** - a ready-made summary, 255 characters or fewer, of what the handoff is
   about. Use it verbatim when present - don't re-summarize it.
 
+Every handoff also carries its tickets (MAT-T219), computed fresh on each call:
+
+- **`tickets`** - the ticket IDs the save covers (read from its text for a save older than the
+  field).
+- **`ticketStatus`** - each ID's status now: `open`, `closed`, `wont-do`, or `missing`.
+- **`live`** - `true` while any of its tickets is open, `false` once every one is closed or
+  wont-do (the save is DONE: nothing is left to resume), `null` when it names no ticket.
+
 If a handoff has no `description` field (an older save, from before this field existed), write
 one yourself from its `task`/`state`/`decisions` fields: plain English, 255 characters or fewer,
 no mid-sentence truncation - end on a full clause.
@@ -49,13 +57,16 @@ per handoff, newest first:
 ━━━ SHADOW · silky-frogs ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Repo:      MindAttic
 Updated:   2026-11-06 20:37
+Tickets:   MAT-T88 (closed), MAT-T91 (open)
 Researched hosting the Orchestrator with a real GPU so agents could run/
 playtest Unity, Unreal and s&box games. Shadow PC rejected as too specialized/
 costly; superseded by REMOTE, a RAM-only host with no GPU need.
 ```
 
 - The heading line is the alias (if any) and the code, e.g. `SHADOW · silky-frogs`; a handoff
-  with no alias just shows its code alone, e.g. `early-badgers`.
+  with no alias just shows its code alone, e.g. `early-badgers`. When `live` is `false`, end the
+  heading with `DONE` (e.g. `━━━ early-badgers · DONE ━━━`): every ticket in it is closed.
+- `Tickets` lists each ID with its `ticketStatus`; write `none` when the list is empty.
 - `Updated` in local time, human-readable (`yyyy-MM-dd HH:mm` is fine).
 - Wrap the description to a comfortable terminal width (about 78 columns); don't print it as one
   unbroken line.

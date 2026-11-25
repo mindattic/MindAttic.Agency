@@ -24,6 +24,11 @@ param(
   [string]$Decisions,
   [string]$State,
   [string]$Next,
+  # save (MAT-T219): the ticket IDs this save covers (ID,ID,... or one comma-separated string). Left
+  # out, they're read from the ticket IDs named in -Task/-State/-Next. At least one must exist in the
+  # ticket database unless -NoTickets marks a deliberately ticketless save (e.g. pure research).
+  [string[]]$Tickets,
+  [switch]$NoTickets,
   [string]$Subject,
   [string]$Aspect,
   [string]$Universe,
@@ -150,6 +155,54 @@ function Resolve-HandoffAlias([string]$text) {
     Select-Object -First 1 -ExpandProperty code
 }
 
+# ---- Tickets a handoff covers (MAT-T219) ----------------------------------------------------------
+$ticketIdPattern = '\b[A-Z][A-Z0-9]*(?:\.[A-Z0-9]+)*-T\d+\b'
+$script:ticketStatusCache = $null
+
+function ConvertTo-TicketIdList([string[]]$values) {
+  # Accepts ID,ID,... as an array or as one comma/space-separated string.
+  $out = New-Object System.Collections.Generic.List[string]
+  foreach ($v in @($values)) {
+    foreach ($part in ([string]$v -split '[,;\s]+')) {
+      $id = $part.Trim().ToUpperInvariant()
+      if ($id -and -not $out.Contains($id)) { $out.Add($id) }
+    }
+  }
+  return $out.ToArray()
+}
+
+function Get-TicketIdsFromText([string[]]$texts) {
+  $out = New-Object System.Collections.Generic.List[string]
+  foreach ($t in @($texts)) {
+    if ([string]::IsNullOrEmpty($t)) { continue }
+    foreach ($m in [regex]::Matches($t, $ticketIdPattern)) { if (-not $out.Contains($m.Value)) { $out.Add($m.Value) } }
+  }
+  return $out.ToArray()
+}
+
+function Get-TicketStatus([string]$id) {
+  # The ticket's status word (open, closed, wont-do), or $null when no such ticket exists. One
+  # `tickets ticket list --json` fills the cache for every ID; an ID it doesn't know (a reassigned
+  # former ID, say) falls back to `tickets ticket show <ID> --json`. Cached for the whole call.
+  # Native stderr under Stop throws in PowerShell 5.1, so this function reads it under Continue.
+  $ErrorActionPreference = 'Continue'
+  if ($null -eq $script:ticketStatusCache) {
+    if (-not (Get-Command tickets -ErrorAction SilentlyContinue)) { throw 'The tickets CLI is not on PATH, so ticket IDs cannot be checked. Use -NoTickets for a deliberately ticketless save.' }
+    $script:ticketStatusCache = @{}
+    $listJson = (& tickets ticket list --json 2>$null) -join "`n"
+    if ($LASTEXITCODE -eq 0 -and $listJson) {
+      foreach ($t in ($listJson | ConvertFrom-Json)) { if ($t.id) { $script:ticketStatusCache[([string]$t.id).ToUpperInvariant()] = [string]$t.status } }
+    }
+  }
+  $key = $id.ToUpperInvariant()
+  if ($script:ticketStatusCache.ContainsKey($key)) { return $script:ticketStatusCache[$key] }
+  $status = $null
+  $showJson = (& tickets ticket show $id --json 2>$null) -join "`n"
+  if ($LASTEXITCODE -eq 0 -and $showJson) { try { $status = [string]($showJson | ConvertFrom-Json).status } catch { } }
+  $script:ticketStatusCache[$key] = $status
+  return $status
+}
+
 function Format-Handoff($s) {
   if ($s.code) { if ($s.alias) { "Code: $($s.code)  [alias: $($s.alias)]" } else { "Code: $($s.code)" } }
   if ($s.repo) {
@@ -159,6 +212,7 @@ function Format-Handoff($s) {
     $where
   }
   if ($s.savedBy) { "Saved by: $($s.savedBy)" }
+  if ($s.PSObject.Properties.Name -contains 'tickets') { $ids = @($s.tickets | Where-Object { $_ }); "Tickets: $(if ($ids.Count) { $ids -join ', ' } else { '(none - ticketless save)' })" }
   "Task: $($s.task)`nDecisions: $($s.decisions)`nState: $($s.state)`nNext: $($s.next)`nUniverse: $($s.universe)`nUpdated: $($s.updatedAt)"
   foreach ($q in @($s.queued)) { if ($q) { "Queued [$($q.id)] $($q.item)" } }
 }
@@ -191,6 +245,22 @@ switch ($Command) {
   }
   'save' {
     if ([string]::IsNullOrWhiteSpace($Task) -or [string]::IsNullOrWhiteSpace($Next)) { throw 'save requires -Task and -Next' }
+    # A quicksave saves a set of tickets and their progress (MAT-T219): checked before anything moves.
+    $requested = @(ConvertTo-TicketIdList $Tickets)
+    if ($NoTickets) {
+      if ($requested.Count -gt 0) { throw 'save takes -Tickets or -NoTickets, not both.' }
+      $savedTickets = @()
+    } else {
+      if ($requested.Count -eq 0) { $requested = @(Get-TicketIdsFromText @($Task, $State, $Next)) }
+      $savedTickets = @($requested | Where-Object { $null -ne (Get-TicketStatus $_) })
+      $unknown = @($requested | Where-Object { $savedTickets -notcontains $_ })
+      if ($unknown.Count -gt 0) { Write-Warning "Not in the ticket database, left out of the save: $($unknown -join ', ')" }
+      if ($savedTickets.Count -eq 0) {
+        $why = if ($requested.Count -eq 0) { 'no -Tickets were given and -Task/-State/-Next name no ticket ID' } else { "none of $($requested -join ', ') exists in the ticket database" }
+        [Console]::Error.WriteLine("save refused: $why. Pass -Tickets ID,ID,... naming the tickets this session worked on, or -NoTickets for a deliberately ticketless save.")
+        exit 2
+      }
+    }
     New-Item -ItemType Directory -Path $stateDir -Force | Out-Null
     if (Test-Path -LiteralPath $sessionPath) {
       # Never overwrite: archive the unconsumed prior save first (shift .NNN up, file it as .001).
@@ -207,12 +277,13 @@ switch ($Command) {
     $repoInfo = Get-RepoInfo $RepoRoot
     # Claim the shareable code first (it's written into the registry atomically), then record the
     # same handoff, code included, as this repo's local save.
-    $registered = [ordered]@{ protocolVersion='1.2'; updatedAt=$updatedAt; savedBy=$savedBy; repo=$repoInfo; task=$Task; decisions=([string]$Decisions); state=([string]$State); next=$Next; queued=$queued; universe=$Universe }
+    $registered = [ordered]@{ protocolVersion='1.3'; updatedAt=$updatedAt; savedBy=$savedBy; repo=$repoInfo; tickets=$savedTickets; task=$Task; decisions=([string]$Decisions); state=([string]$State); next=$Next; queued=$queued; universe=$Universe }
     $newCode = New-HandoffCode $registered
-    $payload = [ordered]@{ protocolVersion='1.2'; code=$newCode; updatedAt=$updatedAt; savedBy=$savedBy; repo=$repoInfo; task=$Task; decisions=([string]$Decisions); state=([string]$State); next=$Next; queued=$queued; universe=$Universe }
+    $payload = [ordered]@{ protocolVersion='1.3'; code=$newCode; updatedAt=$updatedAt; savedBy=$savedBy; repo=$repoInfo; tickets=$savedTickets; task=$Task; decisions=([string]$Decisions); state=([string]$State); next=$Next; queued=$queued; universe=$Universe }
     $payload | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $sessionPath -Encoding UTF8
     if ($queued.Count -gt 0) { Move-ToArchive $queuePath }
-    if ($Json) { $payload | ConvertTo-Json -Depth 8 } else { "Portable MindAttic handoff saved: $sessionPath`nHandoff code: $newCode  (quickload $newCode from any login's CLI)" }; exit 0
+    $ticketNote = if ($savedTickets.Count -gt 0) { $savedTickets -join ', ' } else { 'none (-NoTickets)' }
+    if ($Json) { $payload | ConvertTo-Json -Depth 8 } else { "Portable MindAttic handoff saved: $sessionPath`nHandoff code: $newCode  (quickload $newCode from any login's CLI)`nTickets: $ticketNote" }; exit 0
   }
   'load' {
     if (-not [string]::IsNullOrWhiteSpace($Code)) {
@@ -276,9 +347,29 @@ switch ($Command) {
       Where-Object { $_.BaseName -match $codePattern } |
       ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw -Encoding UTF8 | ConvertFrom-Json } |
       Sort-Object updatedAt -Descending)
+    # Each save's tickets with their live status (MAT-T219): live is true while any is open, false once
+    # every one is closed or wont-do. A save from before the tickets field gets them read from its text.
+    foreach ($r in $rows) {
+      $ids = @(if ($r.PSObject.Properties.Name -contains 'tickets') { ConvertTo-TicketIdList @($r.tickets) } else { Get-TicketIdsFromText @([string]$r.task, [string]$r.state, [string]$r.next) })
+      $statuses = [ordered]@{}
+      foreach ($id in $ids) { $st = Get-TicketStatus $id; $statuses[$id] = if ($st) { $st } else { 'missing' } }
+      $known = @($statuses.Values | Where-Object { $_ -ne 'missing' })
+      $live = if ($known -contains 'open') { $true } elseif ($known.Count -gt 0) { $false } else { $null }
+      $r | Add-Member -NotePropertyName tickets -NotePropertyValue $ids -Force
+      $r | Add-Member -NotePropertyName ticketStatus -NotePropertyValue $statuses -Force
+      $r | Add-Member -NotePropertyName live -NotePropertyValue $live -Force
+    }
     if ($Json) { ConvertTo-Json -InputObject $rows -Depth 8 }
     elseif ($rows.Count -eq 0) { "No unconsumed handoffs in $RegistryRoot." }
-    else { foreach ($r in $rows) { $label = if ($r.alias) { "$($r.code) [$($r.alias)]" } else { $r.code }; '{0,-30} {1,-28} {2}  {3}' -f $label, $r.repo.name, $r.updatedAt, $r.task } }
+    else {
+      foreach ($r in $rows) {
+        $label = if ($r.alias) { "$($r.code) [$($r.alias)]" } else { $r.code }
+        $done = if ($r.live -eq $false) { 'DONE ' } else { '' }
+        $ticketList = (@($r.tickets) | ForEach-Object { "$_ ($($r.ticketStatus[$_]))" }) -join ', '
+        '{0,-30} {1,-28} {2}  {3}{4}' -f $label, $r.repo.name, $r.updatedAt, $done, $r.task
+        if ($ticketList) { "    Tickets: $ticketList" }
+      }
+    }
     exit 0
   }
   'alias' {
