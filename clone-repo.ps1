@@ -4,6 +4,7 @@ param(
   [string]$Owner = 'mindattic',
   [string]$WorkspaceRoot,
   [string]$Topic = 'wip',
+  [ValidateSet('library','app','unity','unreal','site','mod','hardware')][string]$Kind,   # recorded in docs\workspace-repos.json; derived from the clone when omitted
   [switch]$NoRestartLauncher
 )
 
@@ -59,6 +60,34 @@ gh api -X PUT "repos/$fullName/topics" @namesArgs | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "gh api -X PUT repos/$fullName/topics failed (exit $LASTEXITCODE)." }
 Write-Output "tagged $fullName with: $($topics -join ', ')"
 
+# E) - record the repo in the workspace manifest (docs\workspace-repos.json) with its Kind, so
+# tooling (publish-app.ps1 -All, the deploy rollout) never re-derives kind by heuristic. Kind is
+# -Kind when given, else the repo's existing entry, else derived from what is on disk.
+$manifest = Join-Path $WorkspaceRoot 'docs\workspace-repos.json'
+if (Test-Path -LiteralPath $manifest) {
+  if (-not $Kind) {
+    if (Test-Path -LiteralPath (Join-Path $target 'ProjectSettings\ProjectVersion.txt')) { $Kind = 'unity' }
+    elseif (Get-ChildItem -LiteralPath $target -Filter *.uproject -ErrorAction SilentlyContinue) { $Kind = 'unreal' }
+    elseif ((Test-Path -LiteralPath (Join-Path $target 'nexus.json')) -or (Test-Path -LiteralPath (Join-Path $target 'thunderstore.toml'))) { $Kind = 'mod' }
+    elseif (Test-Path -LiteralPath (Join-Path $target 'index.htm')) { $Kind = 'site' }
+    elseif (Get-ChildItem -LiteralPath $target -Recurse -Depth 3 -Filter *.csproj -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -notmatch 'Test' -and (Select-String -LiteralPath $_.FullName -Quiet -Pattern '<OutputType>\s*(Win)?Exe|Sdk="Microsoft\.NET\.Sdk\.Web') }) { $Kind = 'app' }
+    else { $Kind = 'library' }
+  }
+  $raw = [IO.File]::ReadAllText($manifest)
+  $bom = $raw.StartsWith([string][char]0xFEFF)
+  $nl = if ($raw.Contains("`r`n")) { "`r`n" } else { "`n" }
+  $esc = [regex]::Escape($name)
+  if ($raw -match "(?s)`"Name`": `"$esc`",\s*`"Remote`": `"[^`"]*`"(,\s*`"Kind`": `"[^`"]*`")?") {
+    $raw = [regex]::Replace($raw, "(?s)(`"Name`": `"$esc`",(\s*)`"Remote`": `"[^`"]*`")(,\s*`"Kind`": `"[^`"]*`")?", {
+      param($m) "$($m.Groups[1].Value),$($m.Groups[2].Value)`"Kind`": `"$Kind`"" })
+  } else {
+    $entry = "    {$nl      `"Name`": `"$name`",$nl      `"Remote`": `"https://github.com/$fullName.git`",$nl      `"Kind`": `"$Kind`"$nl    }"
+    $raw = [regex]::Replace($raw, "(?s)\s*\]\s*\}\s*$", { param($m) ",$nl$entry$nl  ]$nl}$nl" })
+  }
+  [IO.File]::WriteAllText($manifest, $raw, (New-Object Text.UTF8Encoding($bom)))
+  Write-Output "recorded $name in docs\workspace-repos.json as Kind=$Kind"
+}
 # D) - restart any open Launcher *program* instance so its roster (and Discover Projects)
 # picks the new repo up. A 'host ...'/'commit ...'/etc. CLI instance is a live agent tab and is
 # left alone; only a bare no-argument invocation (the interactive menu) is restarted.
