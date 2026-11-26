@@ -75,13 +75,23 @@
                                    Configs      which configs Redeploy builds (default Debug and Release)
                                    Plan         a Get-Plan-shaped hashtable to use instead of detection
 
-    A sample run.ps1:
-        param([switch]$Redeploy, [switch]$RunDebug, [switch]$RunRelease,
-              [Parameter(ValueFromRemainingArguments)][string[]]$AppArgs = @())
-        $ErrorActionPreference = 'Stop'
-        . 'D:\Projects\MindAttic\MindAttic.Agency\shared\deploy-lib.ps1'
-        Invoke-AppRun -Repo $PSScriptRoot -Redeploy:$Redeploy -RunDebug:$RunDebug -RunRelease:$RunRelease `
-            -AppArgs $AppArgs -Override @{ DebugArgs = @('--dev') }
+    The standard run.ps1 / run.bat pair (MAT-T279):
+      Write-RunPs1               Copies shared\templates\run.ps1 into a repo (kept if one exists, -Force replaces):
+                                 param -Redeploy/-RunDebug/-RunRelease/-DryRun plus pass-through app arguments, an
+                                 override block ($Override, the keys above), then Invoke-AppRun.
+      Write-RunBat               Writes the standard run.bat: a double-click runs run.ps1 with no switches, so it
+                                 opens the menu above; arguments pass through; pauses on failure.
+        . .\MindAttic.Agency\shared\deploy-lib.ps1
+        Write-RunPs1 -Repo D:\Projects\MindAttic\RusNet; Write-RunBat -Repo D:\Projects\MindAttic\RusNet
+
+    How a repo's run.ps1 finds this file (the template's Find-DeployLib), first match wins:
+      1. $env:MINDATTIC_DEPLOY_LIB (the full path of a deploy-lib.ps1)
+      2. walking up from the run.ps1's folder, at each ancestor: MindAttic.Agency\shared\deploy-lib.ps1 (canonical,
+         current with main), then mindattic-agent-standard\shared\deploy-lib.ps1 (the workspace-root mirror, which
+         lags until sync-workspace-copy.ps1 runs)
+      3. the same two under D:\Projects\MindAttic, for repos in another workspace root
+    Agency comes first because the mirror can be behind main; the mirror is the fallback for a workspace that has
+    no Agency checkout. No hard-coded path in the repo, so it works from any depth (tools\run.ps1 too).
 #>
 
 $DeployLibAppsRoot = 'R:\MindAttic\Apps'
@@ -628,4 +638,80 @@ function Invoke-AppRun {
             Start-Process @sp
         }
     }
+}
+
+function Write-RunBat {
+    <#
+    Writes the standard run.bat (MAT-T279): a double-click runs the repo's run.ps1 with no switches, so it opens
+    Invoke-AppRun's menu (1 Redeploy, 2 Run Debug, 3 Run Release, Q Quit); arguments given to run.bat pass through
+    (run.bat -RunDebug --verbose). It replaces each repo's hand-rolled Write-Launcher "1) Deploy & Run 2) Run" bat.
+    -Path defaults to <Repo>\run.bat; -RunScript defaults to <Repo>\run.ps1. A bat beside its run.ps1 points at
+    it by %~dp0, so the pair can move together; anywhere else it carries the run.ps1's full path. The window pauses
+    when run.ps1 fails, so a double-click shows the error. Written ASCII with CRLF (cmd can miss a label in an LF
+    batch file), and only when it changed, since a bat may be rewriting itself while cmd reads it. Returns the path.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Repo,
+        [string]$Path,
+        [string]$RunScript,
+        [string]$Title
+    )
+    $Repo = (Resolve-Path -LiteralPath $Repo).Path
+    if (-not $Path) { $Path = Join-Path $Repo 'run.bat' }
+    if (-not $RunScript) { $RunScript = Join-Path $Repo 'run.ps1' }
+    if (-not $Title) { $Title = Split-Path -Leaf $Repo }
+    $batDir = Split-Path -Parent ([IO.Path]::GetFullPath($Path))
+    $ps1Full = [IO.Path]::GetFullPath($RunScript)
+    $ps1Ref = if ((Split-Path -Parent $ps1Full) -eq $batDir) { '%~dp0' + (Split-Path -Leaf $ps1Full) } else { $ps1Full }
+    $content = @"
+@echo off
+rem The MindAttic standard run.bat (MAT-T279), written by deploy-lib.ps1's Write-RunBat - edits here are overwritten.
+rem Double-click: the run.ps1 menu (1 Redeploy, 2 Run Debug, 3 Run Release). Arguments pass through to run.ps1.
+title $Title
+set "RUN_PS1=$ps1Ref"
+if not exist "%RUN_PS1%" (
+    echo run.ps1 not found at "%RUN_PS1%".
+    pause
+    exit /b 1
+)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%RUN_PS1%" %*
+if errorlevel 1 (
+    echo.
+    echo run.ps1 failed ^(exit %errorlevel%^).
+    pause
+    exit /b 1
+)
+exit /b 0
+"@ -replace "`r?`n", "`r`n"
+    $content += "`r`n"
+    if (-not (Test-Path -LiteralPath $Path) -or (Get-Content -Raw -LiteralPath $Path) -ne $content) {
+        New-Item -ItemType Directory -Force $batDir | Out-Null
+        Set-Content -LiteralPath $Path -Value $content -Encoding ASCII -NoNewline
+        Write-Host "Wrote $Path" -ForegroundColor DarkGray
+    }
+    return $Path
+}
+
+function Write-RunPs1 {
+    <#
+    Copies the standard's template run.ps1 (shared\templates\run.ps1, MAT-T279) to -Path (default <Repo>\run.ps1):
+    the menu through Invoke-AppRun, the deploy-lib.ps1 lookup, and an override block to fill in. An existing file is
+    left alone unless -Force (a repo's run.ps1 is its own once written). Returns the path.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Repo,
+        [string]$Path,
+        [switch]$Force
+    )
+    if (-not $Path) { $Path = Join-Path $Repo 'run.ps1' }
+    $template = Join-Path $PSScriptRoot 'templates\run.ps1'
+    if (-not (Test-Path -LiteralPath $template)) { throw "Write-RunPs1: template not found ($template)." }
+    if ((Test-Path -LiteralPath $Path) -and -not $Force) {
+        Write-Host "Kept $Path (exists; -Force replaces it with the template)" -ForegroundColor DarkGray
+        return $Path
+    }
+    New-Item -ItemType Directory -Force (Split-Path -Parent ([IO.Path]::GetFullPath($Path))) | Out-Null
+    Copy-Item -LiteralPath $template -Destination $Path -Force
+    Write-Host "Wrote $Path" -ForegroundColor DarkGray
+    return $Path
 }
