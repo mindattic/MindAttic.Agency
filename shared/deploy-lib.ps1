@@ -196,6 +196,99 @@ function Write-PublishSidecar {
         publishedAt = (Get-Date).ToString('s') } | ConvertTo-Json | Set-Content (Join-Path $Target '.publish.json') -Encoding UTF8
 }
 
+function Publish-Unity {
+    <#
+    Batch-builds a Unity project (MAT-T270). -Target Windows (default) makes a 64-bit Windows player:
+        Debug   -> Development build (BuildOptions.Development: profiler, debug console, script debugging)
+        Release -> Release build (BuildOptions.None)
+    into $Out\<RepoName>.exe. -Target Android runs the existing MindAtticPublish.BuildApk instead ($Out\<RepoName>.apk
+    plus <apk>.json with the app's identity; publish-app.ps1 turns that into play.json).
+    -Config takes Debug, Release or both (the default); with both, or with no -Out, each config lands in its own
+    Get-DeployTarget folder (<AppsRoot>\<RepoName>\<Config>). The caller owns staging/replacement of that folder.
+    Same machinery as publish-app.ps1's Invoke-Unity: refuses while the project is open in the editor, waits for another
+    batch Unity, copies shared\unity\MindAtticPublish.cs into Assets\Editor for the build only, and puts every byte of
+    ProjectSettings\ and Packages\ back afterwards (switching build target rewrites them). Returns one object per
+    config (Config, Out, Path, Log). Throws on failure.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Project,
+        [string]$RepoName,
+        [ValidateSet('Debug', 'Release')][string[]]$Config = @('Debug', 'Release'),
+        [string]$Out,
+        [ValidateSet('Windows', 'Android')][string]$Target = 'Windows',
+        [string]$AppsRoot = $DeployLibAppsRoot,
+        [string]$EditorScript
+    )
+    $Project = (Resolve-Path $Project).Path
+    if (-not $RepoName) {
+        $top = git -C $Project rev-parse --show-toplevel 2>$null
+        $RepoName = if ($top) { Split-Path -Leaf $top } else { Split-Path -Leaf $Project }
+    }
+    if ($Out -and @($Config).Count -gt 1) { throw 'Publish-Unity: -Out takes one -Config; leave -Out off to build both into their deploy targets.' }
+    if (-not $EditorScript) { $EditorScript = Join-Path $PSScriptRoot 'unity\MindAtticPublish.cs' }
+    if (-not (Test-Path $EditorScript)) { throw "Publish-Unity: editor script not found ($EditorScript)." }
+
+    $ver = (Select-String -Path (Join-Path $Project 'ProjectSettings\ProjectVersion.txt') -Pattern 'm_EditorVersion: (.+)').Matches[0].Groups[1].Value.Trim()
+    $unity = "C:\Program Files\Unity\Hub\Editor\$ver\Editor\Unity.exe"
+    if (-not (Test-Path $unity)) { throw "Unity $ver isn't installed ($unity)." }
+    $leaf = Split-Path -Leaf $Project
+    if (Get-Process -Name Unity -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -like "*$leaf*" }) {
+        throw "$leaf is open in the Unity Editor. Close it (File > Quit) and publish again."
+    }
+
+    $exeBase = ($RepoName -replace '[^A-Za-z0-9._-]', '')
+    $method = if ($Target -eq 'Android') { 'MindAtticPublish.BuildApk' } else { 'MindAtticPublish.BuildWindows' }
+    $buildTarget = if ($Target -eq 'Android') { 'Android' } else { 'Win64' }
+    $results = @()
+    foreach ($cfg in @($Config)) {
+        $dest = if ($Out) { $Out } else { Get-DeployTarget -RepoName $RepoName -Config $cfg -AppsRoot $AppsRoot }
+        New-Item -ItemType Directory -Force $dest | Out-Null
+        $file = Join-Path $dest ($exeBase + $(if ($Target -eq 'Android') { '.apk' } else { '.exe' }))
+        $log = Join-Path $dest 'unity-build.log'
+
+        if (Get-Process -Name Unity -ErrorAction SilentlyContinue | Where-Object { -not $_.MainWindowTitle }) {
+            Write-Host "Another Unity batch process is running; one heavy build at a time, so waiting for it..." -ForegroundColor Yellow
+            while (Get-Process -Name Unity -ErrorAction SilentlyContinue | Where-Object { -not $_.MainWindowTitle }) { Start-Sleep 15 }
+        }
+        $editorDir = Join-Path $Project 'Assets\Editor\MindAtticPublish'
+        $made = -not (Test-Path $editorDir)
+        $parentMade = -not (Test-Path (Join-Path $Project 'Assets\Editor'))
+        New-Item -ItemType Directory -Force $editorDir | Out-Null
+        Copy-Item $EditorScript $editorDir -Force
+        $snap = @{}
+        foreach ($f in @(Get-ChildItem (Join-Path $Project 'ProjectSettings'), (Join-Path $Project 'Packages') -File -ErrorAction SilentlyContinue)) {
+            $snap[$f.FullName] = [IO.File]::ReadAllBytes($f.FullName)
+        }
+        $utmpMade = -not (Test-Path (Join-Path $Project '.utmp'))
+        try {
+            $uargs = @('-batchmode', '-nographics', '-quit', '-projectPath', $Project, '-buildTarget', $buildTarget,
+                '-executeMethod', $method, '-mindatticOut', $file, '-logFile', $log)
+            if ($cfg -eq 'Debug') { $uargs += '-mindatticDev' }
+            $kind = if ($cfg -eq 'Debug') { 'Development' } else { 'Release' }
+            Write-Host "Unity ${ver}: building $(Split-Path -Leaf $file) ($Target, $kind) -> $dest ... log: $log" -ForegroundColor Cyan
+            & $unity @uargs | Out-Default
+            $exit = $LASTEXITCODE
+            if ($exit -ne 0 -or -not (Test-Path $file)) {
+                Get-Content $log -Tail 40 -ErrorAction SilentlyContinue | Write-Host
+                throw "Unity $Target $cfg build failed (exit $exit); full log: $log"
+            }
+        }
+        finally {
+            if ($made) { Remove-Item -Recurse -Force $editorDir, "$editorDir.meta" -ErrorAction SilentlyContinue }
+            else { Remove-Item -Force (Join-Path $editorDir 'MindAtticPublish.cs'), (Join-Path $editorDir 'MindAtticPublish.cs.meta') -ErrorAction SilentlyContinue }
+            if ($parentMade) { Remove-Item -Recurse -Force (Join-Path $Project 'Assets\Editor'), (Join-Path $Project 'Assets\Editor.meta') -ErrorAction SilentlyContinue }
+            foreach ($f in @(Get-ChildItem (Join-Path $Project 'ProjectSettings'), (Join-Path $Project 'Packages') -File -ErrorAction SilentlyContinue)) {
+                if (-not $snap.ContainsKey($f.FullName)) { Remove-Item -Force $f.FullName }
+            }
+            foreach ($k in $snap.Keys) { [IO.File]::WriteAllBytes($k, $snap[$k]) }
+            if ($utmpMade) { Remove-Item -Recurse -Force (Join-Path $Project '.utmp') -ErrorAction SilentlyContinue }
+        }
+        Get-ChildItem $dest -Directory -Filter '*_DoNotShip' | Remove-Item -Recurse -Force
+        $results += [pscustomobject]@{ Config = $cfg; Out = $dest; Path = $file; Log = $log }
+    }
+    return $results
+}
+
 function Get-UnrealPackageHook([string]$repo) {
     <# The Unreal repo's own package script, for Publish-Unreal (MAT-T271): the first of tools\package.ps1, package.ps1,
        tools\run.ps1, run.ps1 whose param block takes -Configuration. Returns @{ Path; Configs (its ValidateSet, or

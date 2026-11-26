@@ -1,4 +1,5 @@
-// Injected by mindattic-agent-standard/shared/publish-app.ps1 for one batch build, then deleted. Builds an Android APK
+// Injected by mindattic-agent-standard/shared/publish-app.ps1 (BuildApk) and deploy-lib.ps1's Publish-Unity
+// (BuildWindows, or BuildApk with -Target Android) for one batch build, then deleted. BuildApk builds an Android APK
 // (ARM64, plus x86_64 under IL2CPP so the Android Emulator runs it natively) and writes <apk>.json with the app's
 // identity for play.json. Every player setting it touches is put back before the editor exits.
 #if UNITY_EDITOR
@@ -71,6 +72,35 @@ public static class MindAtticPublish
             PlayerSettings.SetScriptingBackend(target, backend);
             EditorUserBuildSettings.buildAppBundle = bundle;
         }
+        EditorApplication.Exit(code);
+    }
+
+    // Windows 64-bit player (MAT-T270): -mindatticOut <folder\Game.exe>; -mindatticDev makes a Development build
+    // (deploy-lib.ps1's Publish-Unity -Config Debug), without it a Release build.
+    public static void BuildWindows()
+    {
+        string output = Arg("-mindatticOut");
+        bool dev = Environment.GetCommandLineArgs().Contains("-mindatticDev");
+        int code = 1;
+        try
+        {
+            if (string.IsNullOrEmpty(output)) throw new Exception("-mindatticOut <path.exe> is required");
+            EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.Standalone, BuildTarget.StandaloneWindows64);
+            var scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray();
+            if (scenes.Length == 0) throw new Exception("No enabled scenes in Build Settings");
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output)));
+            var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+            {
+                scenes = scenes,
+                locationPathName = output,
+                target = BuildTarget.StandaloneWindows64,
+                targetGroup = BuildTargetGroup.Standalone,
+                options = dev ? BuildOptions.Development : BuildOptions.None,
+            });
+            Debug.Log($"MindAtticPublish: {report.summary.result}, {report.summary.totalSize / 1048576} MB, {report.summary.totalErrors} errors");
+            if (report.summary.result == BuildResult.Succeeded) code = 0;
+        }
+        catch (Exception e) { Debug.LogError("MindAtticPublish: " + e); }
         EditorApplication.Exit(code);
     }
 
