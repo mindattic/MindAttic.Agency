@@ -9,6 +9,7 @@
       1) Redeploy     build and deploy Debug and Release to R:\MindAttic\Apps\<repo>\{Debug,Release}
       2) Run Debug    the dev/test copy, in this console; extra arguments pass through to the app
       3) Run Release  the standalone copy, started the way a double-click would start it
+    Picks combine: 13 is Deploy & Run (redeploy, then run the installed Release copy).
 
     Finding deploy-lib.ps1, first match wins:
       1. $env:MINDATTIC_DEPLOY_LIB, the full path of a deploy-lib.ps1 (a dev copy, or a workspace elsewhere)
@@ -24,7 +25,8 @@
     .\run.ps1                    the menu
     .\run.ps1 -Redeploy -RunDebug --level 3     (a pass-through spelled like a common parameter, e.g. --verbose,
                                                  is taken by PowerShell itself; put it in DebugArgs instead)
-    .\run.ps1 -RunRelease
+    .\run.ps1 -RunRelease                       Run: the installed copy, no build
+    .\run.ps1 -Redeploy -RunRelease             Deploy & Run
     .\run.ps1 -Redeploy -DryRun  print what would be built and launched, do nothing
 #>
 param(

@@ -36,7 +36,7 @@ protocol. Common commands are implemented once, at the global level, so every re
 - `/commit` — global, Claude Code's own `~/.claude/commands/commit.md`.
 - `/run` — global, a Claude Code built-in skill; no MindAttic-specific file needed.
 - `/deploy` — global router at `~/.claude/commands/deploy.md`: defers to the repo's own
-  `run.ps1` (renamed from `deploy.ps1`; its generated `run.bat` launcher asks Deploy & Run or Run), else routes through MindAttic.Deploy, else says plainly that the repo has no
+  `run.ps1` (renamed from `deploy.ps1`; its generated `run.bat` opens the 1 Redeploy / 2 Run Debug / 3 Run Release menu, where `13` is Deploy & Run), else routes through MindAttic.Deploy, else says plainly that the repo has no
   automated deploy. Per-project deploy *behavior* still varies — the router doesn't.
 - `/progress` — a real global command at `~/.claude/commands/progress.md` that runs
   `mindattic-agent-standard/agent-progress.ps1`: every running subagent (any session or project),

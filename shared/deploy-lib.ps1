@@ -58,7 +58,9 @@
                                    2) Run Debug    the dev/test copy; extra arguments pass through to the app
                                    3) Run Release  the standalone copy a player double-clicks; no dev flags
                                  -Redeploy / -RunDebug / -RunRelease do the same without a prompt (Redeploy first
-                                 when combined). -DryRun prints what each step would build or launch, and does neither.
+                                 when combined). Deploy & Run is a combination: menu pick 13, or -Redeploy -RunRelease;
+                                 Run alone launches the installed copy without building. -DryRun prints what each step
+                                 would build or launch, and does neither.
       Publish-AppConfig          One config of one repo: Get-Plan, build into <target>.staging, stop what runs from
                                  <target>, swap the folder in, write the sidecar. Unity builds the Windows player here.
       Find-AppExe                The exe to launch from a deploy folder: the override's exe, else <repo>.exe, else the
@@ -561,7 +563,8 @@ function Invoke-AppRun {
         1) Redeploy     Build and deploy both Debug and Release
         2) Run Debug    <AppsRoot>\<repo>\Debug: run in this console, extra -AppArgs pass through
         3) Run Release  <AppsRoot>\<repo>\Release: started on its own, as a double-click would, with no dev flags
-    Switches can be combined; Redeploy always goes first. -DryRun prints the builds and launches without doing them.
+    Switches can be combined, and so can menu picks (13 = Deploy & Run: Redeploy, then Run Release); Redeploy always
+    goes first. -DryRun prints the builds and launches without doing them.
     Throws on a failed build or a missing deploy; after Run Debug, $LASTEXITCODE is the app's exit code.
     #>
     param(
@@ -595,16 +598,17 @@ function Invoke-AppRun {
         Write-Host "  2) Run Debug    $(Get-DeployTarget -RepoName $RepoName -Config Debug -AppsRoot $AppsRoot)"
         Write-Host "  3) Run Release  $(Get-DeployTarget -RepoName $RepoName -Config Release -AppsRoot $AppsRoot)"
         Write-Host '  Q) Quit'
+        Write-Host '  Combine picks to deploy and run in one go: 13 = Redeploy, then Run Release.' -ForegroundColor DarkGray
         while ($true) {
-            $choice = (Read-Host '  Choose').Trim()
-            switch -Regex ($choice) {
-                '^1$' { $Redeploy = [switch]$true }
-                '^2$' { $RunDebug = [switch]$true }
-                '^3$' { $RunRelease = [switch]$true }
-                '^[qQ]?$' { return }
+            $choice = (Read-Host '  Choose') -replace '[\s,]', ''
+            if ($choice -match '^[qQ]?$') { return }
+            if ($choice -match '^[123]+$') {
+                if ($choice.Contains('1')) { $Redeploy = [switch]$true }
+                if ($choice.Contains('2')) { $RunDebug = [switch]$true }
+                if ($choice.Contains('3')) { $RunRelease = [switch]$true }
+                break
             }
-            if ($Redeploy -or $RunDebug -or $RunRelease) { break }
-            Write-Host '  Pick 1, 2, 3 or Q.' -ForegroundColor Yellow
+            Write-Host '  Pick 1, 2, 3 (or a combination such as 13) or Q.' -ForegroundColor Yellow
         }
     }
 
