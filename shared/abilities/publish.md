@@ -1,6 +1,6 @@
 ---
 name: publish
-description: Deploy apps to C:/Apps/MindAttic/<repo>/Debug (/publish, /publish dev, /publish all dev) or /Release (/publish release, /publish all release; Unity games get an .apk plus a play.bat device menu); in a mod repo, bare /publish releases the mod to NexusMods/Thunderstore.
+description: Deploy apps to R:/MindAttic/Apps/<repo>/Debug (/publish, /publish dev, /publish all dev) or /Release (/publish release, /publish all release; Unity games get an .apk plus a play.bat device menu); in a mod repo, bare /publish releases the mod to NexusMods/Thunderstore.
 argument-hint: "[all] [dev|release]  |  mod repos: [--local]"
 claude-only: false
 claude-allowed-tools: Read, Bash, PowerShell
@@ -9,8 +9,8 @@ claude-allowed-tools: Read, Bash, PowerShell
 
 Every app has two deployed copies on this machine:
 
-- `C:\Apps\MindAttic\<repo>\Release`: the one definitive release candidate, the copy to film running on its own.
-- `C:\Apps\MindAttic\<repo>\Debug`: the working copy.
+- `R:\MindAttic\Apps\<repo>\Release`: the one definitive release candidate, the copy to film running on its own.
+- `R:\MindAttic\Apps\<repo>\Debug`: the working copy.
 
 Route by the arguments:
 
