@@ -150,6 +150,33 @@ This applies whether the clone is for a brand-new repo or an existing one the wo
 picked up yet (e.g. a repo missing its `wip` topic): `clone-repo.ps1` tags and restarts even when
 skipped past the clone step for a repo already on disk — see the script's own doc comment.
 
+## Every program has the same launcher: run.ps1 + run.bat (MAT-T72)
+
+Every MindAttic program (a desktop, console or web app, or a Unity/Unreal game) is built, installed and started
+the same way, from the same two files at its repo root:
+
+- **`run.ps1`** is a copy of `shared/templates/run.ps1`: a param block, the repo's override block, and a call to
+  `Invoke-AppRun` in `shared/deploy-lib.ps1`. All the logic lives in deploy-lib.ps1, never in the repo.
+- **`run.bat`** comes from `Write-RunBat`. A double-click opens the menu, arguments pass through, and the window
+  pauses on a failure.
+- **The menu**: `1` Redeploy (build Debug and Release into `R:\MindAttic\Apps\<repo>\Debug` and `\Release`),
+  `2` Run Debug, `3` Run Release. Picks combine. **Deploy & Run** is `13` (or `-Redeploy -RunRelease`): redeploy,
+  then run the installed Release copy. **Run** is `3` (or `-RunRelease`): start the installed copy without building.
+  `-DryRun` prints what would be built and launched.
+- **Differences go in the override block**, or in `.agent\run.json` (the block's keys win): exe names, Debug and
+  Release arguments, pre/post-build steps, which configs to build, or a whole `Plan` when detection guesses wrong.
+  An unusual build goes in `.agent\publish.json` (`kind: script`). Don't fork the template.
+- **Adopt it** with `. MindAttic.Agency\shared\deploy-lib.ps1; Write-RunPs1 -Repo <repo>; Write-RunBat -Repo <repo>`
+  (`-Force` replaces a hand-rolled `run.ps1`). Fill in the override block, check it with `.\run.ps1 -Redeploy
+  -DryRun`, then repoint every caller of the old install path (`C:\Apps\<App>`, a scheduler job, a shortcut, another
+  app's exe path) at `R:\MindAttic\Apps\<repo>\Release`. One commit per repo, with that repo's ticket.
+- **Who needs one**: every repo `Get-Plan` finds something to build in. Libraries whose only exes are demos,
+  verifiers or test-vector generators don't, and neither do mods (they ship through `/publish`) or websites that
+  deploy elsewhere.
+
+The rollout is tracked under MAT-T72 (Deploy & Run / Run) and MAT-T256 (deploys on R:), one task per repo or
+group of like repos.
+
 ## Branches
 
 **GOLDEN RULE (see `MINDATTIC_AGENT.md`): always layer code on top.** Work only in the repo's own
