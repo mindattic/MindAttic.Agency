@@ -18,7 +18,7 @@ In order:
 1. `capture` on PATH (only present if `MindAttic.Media.Capture\tools\install.ps1 -AddToPath` was used).
 2. `%LOCALAPPDATA%\MindAttic\Capture\bin\capture.exe` (the normal installed location).
 3. Neither exists: the repo hasn't been deployed here yet. Run
-   `powershell -File D:\Projects\MindAttic\MindAttic.Media.Capture\run.ps1` once (installs `capture.exe` and
+   `powershell -File D:\Projects\MindAttic\MindAttic.Media.Capture\run.ps1 -Redeploy` once (installs `capture.exe` and
    `capture-tray.exe`), then retry step 1-2. If that repo isn't checked out either, say so and stop - don't
    build an ad hoc copy.
 
