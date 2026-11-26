@@ -1410,7 +1410,7 @@ def next_hands_out(repos, pid):
     # machine, past the old 6s, so the cheap count always stood and nagged).
     try:
         import shutil, subprocess
-        exe = os.environ.get("MINDATTIC_ORCHESTRATOR") or shutil.which("orchestrator") or r"C:\Apps\MindAttic.Orchestrator\Cli\orchestrator.exe"
+        exe = os.environ.get("MINDATTIC_ORCHESTRATOR") or shutil.which("orchestrator") or r"R:\MindAttic\Apps\MindAttic.Orchestrator\Release\Cli\orchestrator.exe"
         if not Path(exe).exists():
             return None
         env = dict(os.environ)

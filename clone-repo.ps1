@@ -63,7 +63,7 @@ Write-Output "tagged $fullName with: $($topics -join ', ')"
 # picks the new repo up. A 'host ...'/'commit ...'/etc. CLI instance is a live agent tab and is
 # left alone; only a bare no-argument invocation (the interactive menu) is restarted.
 if (-not $NoRestartLauncher) {
-  $exe = 'C:\Apps\MindAttic.Launcher\MindAttic.Launcher.exe'
+  $exe = 'R:\MindAttic\Apps\MindAttic.Launcher\Release\MindAttic.Launcher.exe'
   $menus = @(Get-CimInstance Win32_Process -Filter "Name='MindAttic.Launcher.exe'" | Where-Object {
     # Strip exactly the exe token (quoted or not) in one pass. Two chained -replace calls here
     # would strip the exe AND the first argument when the exe path was quoted, so a bare one-word
