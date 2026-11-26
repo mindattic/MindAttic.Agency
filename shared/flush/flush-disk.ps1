@@ -11,6 +11,8 @@
     extraction folders (.net\MindAttic.*), anything named MindAttic/Orchestrator/TermHost, and inside temp roots also
     ticket work folders (SG-T143...) and anything an environment variable points into (NUGET_PACKAGES...).
     Only files untouched for a source's minAgeHours (default 24) count, so work in progress anywhere keeps its files.
+    Empty folders (the random-named leftovers of builds and tests, MAT-T245) are removed once they too are older than
+    minAgeHours, nested ones from the inside out; a root-level Cache folder (R:\Cache, M.ORCH-T2226) is never touched.
     Discovery (unless -NoDiscover) walks AppData and ProgramData for Cache/Logs/Dumps-style folders no source covers
     and lists the big ones, so the list can grow with whatever accumulates next.
     Without -Apply nothing is changed. -Groups picks what -Apply empties (default: the sources marked default).
@@ -138,8 +140,9 @@ if ($Apply) {
         }
         foreach ($dir in $r.Dirs) {
             if (-not (Test-Path -LiteralPath $dir -PathType Container)) { continue }
+            $dirCutoff = $now.AddHours(-$(if ($r.Src.minAgeHours) { [int]$r.Src.minAgeHours } else { 24 }))
             Get-ChildItem -LiteralPath $dir -Recurse -Force -Directory | Sort-Object { $_.FullName.Length } -Descending |
-                Where-Object { $_.FullName -notmatch $guard -and -not (Get-ChildItem -LiteralPath $_.FullName -Force | Select-Object -First 1) -and
+                Where-Object { $_.FullName -notmatch $guard -and $_.LastWriteTime -lt $dirCutoff -and -not (Get-ChildItem -LiteralPath $_.FullName -Force | Select-Object -First 1) -and
                     ($r.Src.kind -ne 'temp' -or -not (Get-TempKeep (Get-Item -LiteralPath (Join-Path $dir ($_.FullName.Substring($dir.Length + 1).Split('\')[0])) -Force))) } |
                 ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force }
         }

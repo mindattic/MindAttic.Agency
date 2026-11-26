@@ -126,7 +126,8 @@ MindAttic app extraction folders (`.net\MindAttic.*`), anything named MindAttic,
 TermHost; and inside temp roots also ticket work folders (`SG-T143`, `M.ORCH-T1876`...) and
 anything an environment variable points into (e.g. `NUGET_PACKAGES` in `R:\Temp\nuget\packages`).
 Only files older than a source's `minAgeHours` (24 by default) count, so work in progress anywhere
-keeps its files.
+keeps its files. Empty folders (the random-named leftovers of builds and tests) go too once they are older than
+that age, nested ones first; a root-level `Cache` folder such as `R:\Cache` is never touched.
 
 1. Measure: `& "D:\Projects\MindAttic\mindattic-agent-standard\shared\flush\flush-disk.ps1"`. It
    changes nothing, and prints:
