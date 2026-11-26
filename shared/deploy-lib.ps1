@@ -51,6 +51,37 @@
                                  Debug = DebugGame (else Development), Release = Shipping.
 
     publish-app.ps1 (/publish) dot-sources this file and only adds the repo loop, staging-then-swap and play menu (MAT-T277).
+
+    The run menu every app's run.ps1 / run.bat offers (MAT-T278):
+      Invoke-AppRun              No switch: a numbered menu
+                                   1) Redeploy     build and deploy both Debug and Release
+                                   2) Run Debug    the dev/test copy; extra arguments pass through to the app
+                                   3) Run Release  the standalone copy a player double-clicks; no dev flags
+                                 -Redeploy / -RunDebug / -RunRelease do the same without a prompt (Redeploy first
+                                 when combined). -DryRun prints what each step would build or launch, and does neither.
+      Publish-AppConfig          One config of one repo: Get-Plan, build into <target>.staging, stop what runs from
+                                 <target>, swap the folder in, write the sidecar. Unity builds the Windows player here.
+      Find-AppExe                The exe to launch from a deploy folder: the override's exe, else <repo>.exe, else the
+                                 .NET project's exe, else the only top-level .exe that isn't a crash handler/helper.
+      Get-AppRunOverride         The per-repo override block: <repo>\.agent\run.json, then the run.ps1's own -Override
+                                 hashtable on top (its keys win). Keys, all optional:
+                                   Exe          exe file name in both deploy folders (e.g. 'SpaceGod.exe')
+                                   DebugExe, ReleaseExe   per-config exe name, over Exe
+                                   DebugArgs    arguments always passed to Run Debug, before the pass-through ones
+                                   ReleaseArgs  arguments for Run Release (keep empty for a true standalone run)
+                                   PreBuild, PostBuild    run before/after each config's build: a scriptblock (called with
+                                                -Config <Debug|Release> -Out <folder>) or a command line for cmd.exe in
+                                                the repo, with {config} and {out} filled in
+                                   Configs      which configs Redeploy builds (default Debug and Release)
+                                   Plan         a Get-Plan-shaped hashtable to use instead of detection
+
+    A sample run.ps1:
+        param([switch]$Redeploy, [switch]$RunDebug, [switch]$RunRelease,
+              [Parameter(ValueFromRemainingArguments)][string[]]$AppArgs = @())
+        $ErrorActionPreference = 'Stop'
+        . 'D:\Projects\MindAttic\MindAttic.Agency\shared\deploy-lib.ps1'
+        Invoke-AppRun -Repo $PSScriptRoot -Redeploy:$Redeploy -RunDebug:$RunDebug -RunRelease:$RunRelease `
+            -AppArgs $AppArgs -Override @{ DebugArgs = @('--dev') }
 #>
 
 $DeployLibAppsRoot = 'R:\MindAttic\Apps'
@@ -386,4 +417,215 @@ function Publish-Unreal {
         throw "Publish-Unreal: the package in $Out has no .exe."
     }
     Write-Host "  Published Unreal $ueConfig -> $Out" -ForegroundColor Green
+}
+
+function Get-AppRunOverride {
+    <# The per-repo run override (MAT-T278): <Repo>\.agent\run.json, then $Override's keys on top. Always a hashtable. #>
+    param([Parameter(Mandatory)][string]$Repo, [hashtable]$Override)
+    $o = @{}
+    $f = Join-Path $Repo '.agent\run.json'
+    if (Test-Path -LiteralPath $f) {
+        $j = Get-Content -LiteralPath $f -Raw | ConvertFrom-Json
+        foreach ($prop in $j.PSObject.Properties) {
+            $v = $prop.Value
+            if ($prop.Name -eq 'plan' -and $v) {
+                $h = @{}; foreach ($q in $v.PSObject.Properties) { $h[($q.Name.Substring(0, 1).ToUpper() + $q.Name.Substring(1))] = $q.Value }
+                $v = $h
+            }
+            $o[$prop.Name] = $v
+        }
+    }
+    if ($Override) { foreach ($k in $Override.Keys) { $o[$k] = $Override[$k] } }
+    return $o
+}
+
+function Invoke-AppRunStep {
+    <# Runs an override PreBuild/PostBuild step: a scriptblock (-Config, -Out) or a cmd.exe line with {config}/{out}. #>
+    param($Step, [string]$Repo, [string]$Config, [string]$Out, [string]$Label)
+    if (-not $Step) { return }
+    Write-Host "  $Label ($Config)" -ForegroundColor DarkGray
+    if ($Step -is [scriptblock]) { & $Step -Config $Config -Out $Out | Out-Host; return }
+    $cmd = ([string]$Step).Replace('{config}', $Config).Replace('{out}', $Out)
+    Push-Location -LiteralPath $Repo
+    try {
+        $global:LASTEXITCODE = 0
+        cmd.exe /c $cmd | Out-Host
+        if ($LASTEXITCODE) { throw "$Label failed ($LASTEXITCODE): $cmd" }
+    } finally { Pop-Location }
+}
+
+function Publish-AppConfig {
+    <#
+    Builds one config of one repo into its deploy folder (MAT-T278): PreBuild, the plan's build into <target>.staging,
+    then running copies from <target> are stopped, the staging folder replaces <target>, the sidecar is written and
+    PostBuild runs against <target>. Unity builds the Windows player (<repo>.exe). Returns the target folder; throws on
+    failure (the old <target> is left alone when the build fails).
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Repo,
+        [Parameter(Mandatory)][hashtable]$Plan,
+        [Parameter(Mandatory)][ValidateSet('Debug', 'Release')][string]$Config,
+        [string]$RepoName,
+        [string]$AppsRoot = $DeployLibAppsRoot,
+        [hashtable]$Override = @{},
+        [switch]$DryRun
+    )
+    if (-not $RepoName) { $RepoName = Split-Path -Leaf $Repo }
+    $mode = if ($Config -eq 'Release') { 'release' } else { 'dev' }
+    $target = Get-DeployTarget -RepoName $RepoName -Config $Config -AppsRoot $AppsRoot
+    if ($DryRun) {
+        Write-Host "  would build $RepoName $Config ($($Plan.Kind)) -> $target" -ForegroundColor Yellow
+        return $target
+    }
+    $stage = "$target.staging"
+    if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
+    New-Item -ItemType Directory -Force $stage | Out-Null
+    Write-Host "== $RepoName $Config -> $target ($($Plan.Kind))" -ForegroundColor Cyan
+    try {
+        Invoke-AppRunStep -Step $Override.PreBuild -Repo $Repo -Config $Config -Out $stage -Label 'PreBuild'
+        switch ($Plan.Kind) {
+            'unity' { Publish-Unity -Project $Plan.Project -RepoName $RepoName -Config $Config -Out $stage -Target Windows -AppsRoot $AppsRoot | Out-Null }
+            'unreal' { Publish-Unreal -Repo $Repo -Out $stage -Config $Config | Out-Host }
+            'dotnet' { Publish-DotNet -Projects $Plan.Projects -Out $stage -Config $Config | Out-Host }
+            default { Publish-Script -Plan $Plan -Repo $Repo -Out $stage -Config $Config -Mode $mode | Out-Host }
+        }
+    }
+    catch {
+        Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
+        throw
+    }
+    Get-Process -ErrorAction SilentlyContinue |
+        Where-Object { try { $_.Path -and $_.Path.StartsWith($target + '\', [StringComparison]::OrdinalIgnoreCase) } catch { $false } } |
+        Stop-Process -Force -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Recurse -Force }
+    New-Item -ItemType Directory -Force (Split-Path -Parent $target) | Out-Null
+    Move-Item -LiteralPath $stage -Destination $target
+    Write-PublishSidecar -Repo $Repo -Target $target -Mode $mode -Config $Config -Kind $Plan.Kind
+    Invoke-AppRunStep -Step $Override.PostBuild -Repo $Repo -Config $Config -Out $target -Label 'PostBuild'
+    return $target
+}
+
+function Find-AppExe {
+    <#
+    The exe to launch from a deploy folder (MAT-T278), first match wins: -Name (the override's exe); <RepoName>.exe
+    (Unity names its player so, also with the repo name's odd characters stripped); each .NET project's exe (its
+    AssemblyName, else the csproj name); the only top-level .exe left once crash handlers and helpers are set aside
+    (an Unreal package's root bootstrapper exe). Returns the full path, or $null when the folder has no match.
+    Throws when several exes are left and none is named, so the repo sets Exe in its override.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Folder,
+        [string]$RepoName,
+        [hashtable]$Plan,
+        [string]$Name
+    )
+    if (-not (Test-Path -LiteralPath $Folder)) { return $null }
+    $names = @()
+    if ($Name) { $names += $(if ($Name -like '*.exe') { $Name } else { "$Name.exe" }) }
+    if ($RepoName) { $names += "$RepoName.exe"; $names += (($RepoName -replace '[^A-Za-z0-9._-]', '') + '.exe') }
+    if ($Plan -and $Plan.Kind -eq 'dotnet') {
+        foreach ($proj in @($Plan.Projects)) {
+            $x = Get-Content -LiteralPath $proj -Raw -ErrorAction SilentlyContinue
+            if ($x -match '<AssemblyName>\s*([^<]+?)\s*</AssemblyName>' -and $Matches[1] -notmatch '\$\(') { $names += "$($Matches[1]).exe" }
+            $names += ([IO.Path]::GetFileNameWithoutExtension($proj) + '.exe')
+        }
+    }
+    foreach ($n in $names) {
+        $p = Join-Path $Folder $n
+        if (Test-Path -LiteralPath $p -PathType Leaf) { return $p }
+    }
+    if ($Name) { return $null }
+    $helpers = '^(UnityCrashHandler(32|64)|CrashReportClient|createdump|UnrealCEFSubProcess|EpicWebHelper|UE4PrereqSetup_x64|UEPrereqSetup_x64|vc_redist\..*)$'
+    $left = @(Get-ChildItem -LiteralPath $Folder -Filter *.exe -File -ErrorAction SilentlyContinue | Where-Object { $_.BaseName -notmatch $helpers })
+    if ($left.Count -eq 1) { return $left[0].FullName }
+    if ($left.Count -gt 1) {
+        throw "Find-AppExe: $Folder has several exes ($(($left | ForEach-Object Name) -join ', ')); set Exe in the run override."
+    }
+    return $null
+}
+
+function Invoke-AppRun {
+    <#
+    The run menu of every app's run.ps1 / run.bat (MAT-T278; see the header for the override keys and a sample run.ps1).
+    With no -Redeploy/-RunDebug/-RunRelease it asks:
+        1) Redeploy     Build and deploy both Debug and Release
+        2) Run Debug    <AppsRoot>\<repo>\Debug: run in this console, extra -AppArgs pass through
+        3) Run Release  <AppsRoot>\<repo>\Release: started on its own, as a double-click would, with no dev flags
+    Switches can be combined; Redeploy always goes first. -DryRun prints the builds and launches without doing them.
+    Throws on a failed build or a missing deploy; after Run Debug, $LASTEXITCODE is the app's exit code.
+    #>
+    param(
+        [string]$Repo,
+        [string]$RepoName,
+        [switch]$Redeploy,
+        [switch]$RunDebug,
+        [switch]$RunRelease,
+        [string[]]$AppArgs = @(),
+        [hashtable]$Override,
+        [string]$AppsRoot = $DeployLibAppsRoot,
+        [switch]$DryRun
+    )
+    if (-not $Repo) {
+        $Repo = git rev-parse --show-toplevel 2>$null
+        if (-not $Repo) { throw 'Invoke-AppRun: not in a git repo; pass -Repo.' }
+    }
+    $Repo = (Resolve-Path -LiteralPath $Repo).Path
+    if (-not $RepoName) { $RepoName = Split-Path -Leaf $Repo }
+    if (-not $AppsRoot) { $AppsRoot = 'R:\MindAttic\Apps' }
+    $ov = Get-AppRunOverride -Repo $Repo -Override $Override
+    $plan = if ($ov.Plan) { [hashtable]$ov.Plan } else { Get-Plan $Repo }
+    $configs = if ($ov.Configs) { @($ov.Configs) } else { @('Debug', 'Release') }
+    $AppArgs = @($AppArgs | Where-Object { $_ -ne $null -and $_ -ne '' })
+
+    if (-not ($Redeploy -or $RunDebug -or $RunRelease)) {
+        $kind = if ($plan) { $plan.Kind } else { 'nothing to build' }
+        Write-Host ''
+        Write-Host "  $RepoName  ($kind)" -ForegroundColor Cyan
+        Write-Host '  1) Redeploy     Build and deploy both Debug and Release'
+        Write-Host "  2) Run Debug    $(Get-DeployTarget -RepoName $RepoName -Config Debug -AppsRoot $AppsRoot)"
+        Write-Host "  3) Run Release  $(Get-DeployTarget -RepoName $RepoName -Config Release -AppsRoot $AppsRoot)"
+        Write-Host '  Q) Quit'
+        while ($true) {
+            $choice = (Read-Host '  Choose').Trim()
+            switch -Regex ($choice) {
+                '^1$' { $Redeploy = [switch]$true }
+                '^2$' { $RunDebug = [switch]$true }
+                '^3$' { $RunRelease = [switch]$true }
+                '^[qQ]?$' { return }
+            }
+            if ($Redeploy -or $RunDebug -or $RunRelease) { break }
+            Write-Host '  Pick 1, 2, 3 or Q.' -ForegroundColor Yellow
+        }
+    }
+
+    if ($Redeploy) {
+        if (-not $plan) { throw "Invoke-AppRun: $RepoName has nothing to build (no Get-Plan match; set Plan in the run override)." }
+        foreach ($cfg in $configs) {
+            Publish-AppConfig -Repo $Repo -Plan $plan -Config $cfg -RepoName $RepoName -AppsRoot $AppsRoot -Override $ov -DryRun:$DryRun | Out-Null
+        }
+    }
+
+    foreach ($cfg in @($(if ($RunDebug) { 'Debug' }), $(if ($RunRelease) { 'Release' })) | Where-Object { $_ }) {
+        $target = Get-DeployTarget -RepoName $RepoName -Config $cfg -AppsRoot $AppsRoot
+        $exeName = if ($cfg -eq 'Debug' -and $ov.DebugExe) { $ov.DebugExe } elseif ($cfg -eq 'Release' -and $ov.ReleaseExe) { $ov.ReleaseExe } else { $ov.Exe }
+        $exe = Find-AppExe -Folder $target -RepoName $RepoName -Plan $plan -Name $exeName
+        $runArgs = if ($cfg -eq 'Debug') { @(@($ov.DebugArgs) + $AppArgs | Where-Object { $_ -ne $null -and $_ -ne '' }) } else { @(@($ov.ReleaseArgs) | Where-Object { $_ -ne $null -and $_ -ne '' }) }
+        if (-not $exe) {
+            if ($DryRun) { $exe = Join-Path $target $(if ($exeName) { $exeName } else { "$RepoName.exe" }) }
+            else { throw "Invoke-AppRun: no $cfg build of $RepoName in $target; choose 1) Redeploy first." }
+        }
+        if ($DryRun) {
+            Write-Host "  would run $cfg : `"$exe`" $($runArgs -join ' ')" -ForegroundColor Yellow
+            continue
+        }
+        Write-Host "== Run $cfg : $exe $($runArgs -join ' ')" -ForegroundColor Cyan
+        if ($cfg -eq 'Debug') {
+            Push-Location -LiteralPath $target
+            try { & $exe @runArgs } finally { Pop-Location }
+        } else {
+            $sp = @{ FilePath = $exe; WorkingDirectory = $target }
+            if ($runArgs.Count) { $sp.ArgumentList = $runArgs }
+            Start-Process @sp
+        }
+    }
 }
