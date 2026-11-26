@@ -126,3 +126,90 @@ function Write-PublishSidecar {
         commit = (git -C $Repo rev-parse HEAD 2>$null); dirty = [bool](git -C $Repo status --porcelain 2>$null)
         publishedAt = (Get-Date).ToString('s') } | ConvertTo-Json | Set-Content (Join-Path $Target '.publish.json') -Encoding UTF8
 }
+
+function Get-UnrealPackageHook([string]$repo) {
+    <# The Unreal repo's own package script, for Publish-Unreal (MAT-T271): the first of tools\package.ps1, package.ps1,
+       tools\run.ps1, run.ps1 whose param block takes -Configuration. Returns @{ Path; Configs (its ValidateSet, or
+       $null when open); OutParam (-Out/-OutDir/-ArchiveDirectory when it takes one, else $null); Params (all names) }. #>
+    foreach ($rel in 'tools\package.ps1', 'package.ps1', 'tools\run.ps1', 'run.ps1') {
+        $p = Join-Path $repo $rel
+        if (-not (Test-Path -LiteralPath $p)) { continue }
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($p, [ref]$null, [ref]$null)
+        if (-not $ast.ParamBlock) { continue }
+        $params = @($ast.ParamBlock.Parameters)
+        $cfg = $params | Where-Object { $_.Name.VariablePath.UserPath -eq 'Configuration' } | Select-Object -First 1
+        if (-not $cfg) { continue }
+        $set = $cfg.Attributes | Where-Object { $_.TypeName.Name -eq 'ValidateSet' } | Select-Object -First 1
+        $configs = if ($set) { @($set.PositionalArguments | ForEach-Object { $_.SafeGetValue() }) } else { $null }
+        $names = @($params | ForEach-Object { $_.Name.VariablePath.UserPath })
+        $outParam = $names | Where-Object { $_ -in 'Out', 'OutDir', 'ArchiveDirectory' } | Select-Object -First 1
+        return @{ Path = $p; Configs = $configs; OutParam = $outParam; Params = $names }
+    }
+    return $null
+}
+
+function Publish-Unreal {
+    <#
+    Packages an Unreal repo through its own package hook (Get-UnrealPackageHook) and deploys the package into $Out
+    (MAT-T271). Debug packages DebugGame, Release packages Shipping. A hook whose -Configuration ValidateSet has no
+    DebugGame (SpaceGod.Unreal's tools\package.ps1 takes Development|Shipping today) packages Development for Debug,
+    with a warning. A hook that takes -Out/-OutDir/-ArchiveDirectory writes straight into $Out; otherwise the hook
+    archives into the repo (SpaceGod.Unreal: Builds\Cpp\Windows) and that folder is copied into $Out: -ArchiveDir
+    names it, else it is the newest Builds\**\Windows folder holding an .exe written by this run. Running copies
+    of the game from $Out are stopped first, and $Out is replaced, not merged. Throws on any failure.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Repo,
+        [Parameter(Mandatory)][string]$Out,
+        [Parameter(Mandatory)][ValidateSet('Debug', 'Release')][string]$Config,
+        [string]$ArchiveDir,
+        [int]$MaxParallelActions = 4
+    )
+    $hook = Get-UnrealPackageHook $Repo
+    if (-not $hook) {
+        throw "Publish-Unreal: $Repo has no package hook (tools\package.ps1, package.ps1 or run.ps1 taking -Configuration)."
+    }
+    $ueConfig = if ($Config -eq 'Debug') { 'DebugGame' } else { 'Shipping' }
+    if ($hook.Configs -and $ueConfig -notin $hook.Configs) {
+        if ($Config -eq 'Debug' -and 'Development' -in $hook.Configs) {
+            Write-Warning "$(Split-Path -Leaf $hook.Path) takes no -Configuration DebugGame ($($hook.Configs -join '|')): packaging Development for Debug."
+            $ueConfig = 'Development'
+        } else {
+            throw "Publish-Unreal: $($hook.Path) takes -Configuration $($hook.Configs -join '|'), not $ueConfig."
+        }
+    }
+
+    Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($Out, 'OrdinalIgnoreCase') } |
+        Stop-Process -Force -ErrorAction SilentlyContinue
+
+    $splat = @{ Configuration = $ueConfig }
+    if ('MaxParallelActions' -in $hook.Params) { $splat.MaxParallelActions = $MaxParallelActions }
+    if ($hook.OutParam) {
+        if (Test-Path -LiteralPath $Out) { Remove-Item -LiteralPath $Out -Recurse -Force }
+        $splat[$hook.OutParam] = $Out
+    }
+    $started = Get-Date
+    Write-Host "  Packaging $ueConfig ($(Split-Path -Leaf $hook.Path))..." -ForegroundColor Cyan
+    $global:LASTEXITCODE = 0
+    & $hook.Path @splat
+    if ($LASTEXITCODE) { throw "$(Split-Path -Leaf $hook.Path) -Configuration $ueConfig failed ($LASTEXITCODE)" }
+
+    if (-not $hook.OutParam) {
+        if (-not $ArchiveDir) {
+            $builds = Join-Path $Repo 'Builds'
+            $ArchiveDir = Get-ChildItem -LiteralPath $builds -Directory -Recurse -Depth 3 -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -in 'Windows', 'Win64', 'WindowsNoEditor' -and $_.LastWriteTime -ge $started.AddSeconds(-5) -and
+                    (Get-ChildItem -LiteralPath $_.FullName -Filter *.exe -File -ErrorAction SilentlyContinue) } |
+                Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
+            if (-not $ArchiveDir) { throw "Publish-Unreal: no package written under $builds by this run; pass -ArchiveDir." }
+        }
+        if (-not (Test-Path -LiteralPath $ArchiveDir)) { throw "Publish-Unreal: no package at $ArchiveDir." }
+        if (Test-Path -LiteralPath $Out) { Remove-Item -LiteralPath $Out -Recurse -Force }
+        New-Item -ItemType Directory -Force $Out | Out-Null
+        Copy-Item -Path (Join-Path $ArchiveDir '*') -Destination $Out -Recurse -Force
+    }
+    if (-not (Get-ChildItem -LiteralPath $Out -Filter *.exe -File -ErrorAction SilentlyContinue)) {
+        throw "Publish-Unreal: the package in $Out has no .exe."
+    }
+    Write-Host "  Published Unreal $ueConfig -> $Out" -ForegroundColor Green
+}
