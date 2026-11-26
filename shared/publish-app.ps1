@@ -70,8 +70,8 @@ function Invoke-UnityApk([string]$repoName, [string]$project, [string]$stage) {
         minSdk = $info.minSdk; orientation = $info.orientation; version = $info.version
     }
     $play | ConvertTo-Json | Set-Content (Join-Path $stage 'play.json') -Encoding UTF8
-    # Android.Emulator.Suite's own deploy stays on C: until that repo migrates (MAT-T267).
-    $suitePlay = 'C:\Apps\Android.Emulator.Suite\play'
+    # Android.Emulator.Suite's deploy.ps1 now writes its play\ folder under the R: AppsRoot (AES-T12).
+    $suitePlay = Join-Path $AppsRoot 'Android.Emulator.Suite\Release\play'
     if (-not (Test-Path (Join-Path $suitePlay 'play.ps1'))) { $suitePlay = Join-Path $Root 'Android.Emulator.Suite\tools' }
     if (-not (Test-Path (Join-Path $suitePlay 'play.ps1'))) { Write-Host "Android.Emulator.Suite's play.ps1 wasn't found; the APK is there without a launcher." -ForegroundColor Yellow }
     else { Copy-Item (Join-Path $suitePlay 'play.ps1'), (Join-Path $suitePlay 'play.bat') $stage -Force }
