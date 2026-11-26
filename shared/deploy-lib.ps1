@@ -24,7 +24,25 @@
                                  'script' (.agent\publish.json's command with {out}/{config}/{mode} filled in).
       Write-PublishSidecar       Writes <target>\.publish.json (repo, mode, configuration, kind, commit, dirty, time).
 
-    Publish-DotNet / Publish-Unity / Publish-Unreal land here in their own tickets (MAT-T276, MAT-T270, MAT-T271).
+      Publish-DotNet             Config-aware dotnet publish of a 'dotnet' plan's projects into one folder (MAT-T276):
+                                   Debug   -> dotnet publish -c Debug --self-contained false (framework-dependent, fast)
+                                   Release -> dotnet publish -c Release --self-contained true -r win-x64
+                                              -p:PublishSingleFile=true (standalone; no .NET runtime needed)
+                                 Release also bundles native libraries into the exe (IncludeNativeLibrariesForSelfExtract,
+                                 so WPF/WinForms/WebView2 natives don't sit beside it) and embeds the PDB, so a plain
+                                 Exe/WinExe lands as one standalone .exe. Shapes that can't take that get the nearest fit
+                                 (Get-DotnetPublishShape decides, Publish-DotNet says which on the console):
+                                   web        Microsoft.NET.Sdk.Web/Razor app: self-contained, NOT single-file
+                                              (wwwroot, appsettings and the like must sit beside it anyway).
+                                   blazorwasm Blazor WebAssembly: a static site; plain publish in both configs, no RID.
+                                   library    no Exe/WinExe OutputType: plain framework-dependent publish in both configs.
+                                   netfx      .NET Framework (net4x / old-style csproj): plain publish, no RID.
+                                 A csproj that says <PublishSingleFile>false</PublishSingleFile> or
+                                 <SelfContained>false</SelfContained> keeps that opt-out in Release. Several projects
+                                 (a multi-exe repo) publish into the same folder, each its own single-file exe.
+      Get-DotnetPublishShape     Reads a csproj and returns its shape (app/web/blazorwasm/library/netfx) and opt-outs.
+
+    Publish-Unity / Publish-Unreal land here in their own tickets (MAT-T270, MAT-T271).
 #>
 
 $DeployLibAppsRoot = 'R:\MindAttic\Apps'
@@ -109,6 +127,57 @@ function Publish-Script {
             try { cmd.exe /c $cmd; if ($LASTEXITCODE) { throw "publish command failed ($LASTEXITCODE): $cmd" } } finally { Pop-Location }
         }
         default { throw "Publish-Script runs 'outscript' or 'script' plans, not '$($Plan.Kind)'." }
+    }
+}
+
+function Get-DotnetPublishShape([string]$Project) {
+    <# What kind of .NET project this is, for Publish-DotNet: Shape (app|web|blazorwasm|library|netfx) plus any opt-outs. #>
+    $x = Get-Content $Project -Raw
+    $shape = 'library'
+    if ($x -notmatch '<Project\s[^>]*Sdk=' -or $x -match '<TargetFrameworks?>\s*(net[2-4]\d{1,2}(?![\d.])|v\d)') { $shape = 'netfx' }
+    elseif ($x -match 'Sdk="Microsoft\.NET\.Sdk\.BlazorWebAssembly"') { $shape = 'blazorwasm' }
+    elseif ($x -match 'Sdk="Microsoft\.NET\.Sdk\.(Web|Razor)"' -and $x -notmatch '<OutputType>\s*Library\s*</OutputType>') { $shape = 'web' }
+    elseif ($x -match '<OutputType>\s*(WinExe|Exe)\s*</OutputType>') { $shape = 'app' }
+    return @{
+        Shape        = $shape
+        NoSingleFile = [bool]($x -match '<PublishSingleFile>\s*false\s*</PublishSingleFile>')
+        NoSelfContained = [bool]($x -match '<SelfContained>\s*false\s*</SelfContained>')
+    }
+}
+
+function Publish-DotNet {
+    <# dotnet-publishes each project into $Out: Debug framework-dependent, Release self-contained single-file (see the header). Throws on failure. #>
+    param(
+        [Parameter(Mandatory)][string[]]$Projects,
+        [Parameter(Mandatory)][string]$Out,
+        [Parameter(Mandatory)][ValidateSet('Debug', 'Release')][string]$Config,
+        [string]$Runtime = 'win-x64'
+    )
+    foreach ($proj in $Projects) {
+        $leaf = Split-Path -Leaf $proj
+        $s = Get-DotnetPublishShape $proj
+        $a = @('publish', $proj, '-c', $Config, '-o', $Out, '-nologo', '-v', 'q')
+        $how = 'framework-dependent'
+        if ($s.Shape -in 'app', 'web') {
+            if ($Config -eq 'Debug' -or $s.NoSelfContained) {
+                $a += @('--self-contained', 'false', '-p:PublishSingleFile=false')
+            } else {
+                $a += @('--self-contained', 'true', '-r', $Runtime)
+                $how = "self-contained $Runtime"
+                if ($s.Shape -eq 'app' -and -not $s.NoSingleFile) {
+                    $a += @('-p:PublishSingleFile=true', '-p:IncludeNativeLibrariesForSelfExtract=true', '-p:DebugType=embedded')
+                    $how += ', single-file'
+                } else {
+                    $a += '-p:PublishSingleFile=false'
+                    $how += $(if ($s.Shape -eq 'web') { ', not single-file (web app)' } else { ', not single-file (csproj opts out)' })
+                }
+            }
+        } else {
+            $how = "plain publish ($($s.Shape))"
+        }
+        Write-Host "  dotnet publish $leaf -c $Config : $how" -ForegroundColor DarkGray
+        & dotnet @a
+        if ($LASTEXITCODE -ne 0) { throw "dotnet publish $leaf ($Config) failed ($LASTEXITCODE)" }
     }
 }
 
