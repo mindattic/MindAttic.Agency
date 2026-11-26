@@ -28,7 +28,7 @@ In order:
 capture shot --self --clipboard
 ```
 
-Image format defaults to PNG. No `--out` override: let it land in the normal `R:\MindAttic\Capture\...`
+Image format defaults to PNG. No `--out` override: let it land in the normal `R:\MindAttic\Media\Capture\<app>\...`
 tree (or the `%USERPROFILE%\Videos\MindAttic` fallback) like every other capture.
 
 ## 3. Report
