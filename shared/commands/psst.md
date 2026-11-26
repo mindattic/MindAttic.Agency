@@ -13,7 +13,7 @@ which form they meant when the words settle it; ask only when the time or the ev
 
 ## 1. Find `psst`
 
-`psst` on PATH, else `D:\Projects\MindAttic\MindAttic.Psst\MindAttic.Psst.Cli\bin\Release\net10.0-windows\psst.exe`.
+`psst` on PATH, else `R:\MindAttic\Apps\MindAttic.Psst\Release\psst.exe`.
 Neither there: say Psst isn't built here (`dotnet build MindAttic.Psst.slnx -c Release` in its repo) and stop.
 
 ## 2. Pick the form
