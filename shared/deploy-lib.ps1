@@ -13,10 +13,12 @@
 
     Functions (moved from publish-app.ps1 unchanged, MAT-T275):
       Get-Plan <repo>            How a repo is built, first match wins:
-                                   1. <repo>\.agent\publish.json  { "kind": "script"|"dotnet"|"unity"|"none", ... }
-                                   2. a Unity project (ProjectSettings\ProjectVersion.txt at the root or one level down)
-                                   3. .NET Exe/WinExe/Web projects (not tests, benches or samples)
-                                   4. run.ps1 / deploy.ps1 (root or tools\) that takes -Out / -OutDir
+                                   1. <repo>\.agent\publish.json  { "kind": "script"|"dotnet"|"unity"|"unreal"|"none", ... }
+                                   2. an Unreal project (a .uproject at the root or one level down, e.g. SpaceGod.Unreal\Cpp)
+                                      -> kind 'unreal' (MAT-T277)
+                                   3. a Unity project (ProjectSettings\ProjectVersion.txt at the root or one level down)
+                                   4. .NET Exe/WinExe/Web projects (not tests, benches or samples)
+                                   5. run.ps1 / deploy.ps1 (root or tools\) that takes -Out / -OutDir
                                  Mod repos (nexus.json / thunderstore.toml) and anything else return $null.
       Get-UnityProject, Get-DotnetApps, Get-OutScript   Get-Plan's detectors.
       Get-DeployTarget           <AppsRoot>\<repo>\<Debug|Release>.
@@ -42,7 +44,13 @@
                                  (a multi-exe repo) publish into the same folder, each its own single-file exe.
       Get-DotnetPublishShape     Reads a csproj and returns its shape (app/web/blazorwasm/library/netfx) and opt-outs.
 
-    Publish-Unity / Publish-Unreal land here in their own tickets (MAT-T270, MAT-T271).
+      Publish-Unity              Batch-builds a Unity project (MAT-T270): -Target Windows (default) makes a 64-bit player,
+                                 Debug = Development build, Release = Release build; -Target Android makes an .apk
+                                 (MindAtticPublish.BuildApk, what publish-app.ps1 uses for its play.bat device menu).
+      Publish-Unreal             Packages an Unreal repo through its own package hook (Get-UnrealPackageHook, MAT-T271):
+                                 Debug = DebugGame (else Development), Release = Shipping.
+
+    publish-app.ps1 (/publish) dot-sources this file and only adds the repo loop, staging-then-swap and play menu (MAT-T277).
 #>
 
 $DeployLibAppsRoot = 'R:\MindAttic\Apps'
@@ -84,9 +92,13 @@ function Get-Plan([string]$repo) {
             'script' { return @{ Kind = 'script'; Command = $c.command } }
             'dotnet' { return @{ Kind = 'dotnet'; Projects = @($c.projects | ForEach-Object { Join-Path $repo $_ }) } }
             'unity' { return @{ Kind = 'unity'; Project = $(if ($c.project) { Join-Path $repo $c.project } else { Get-UnityProject $repo }) } }
+            'unreal' { return @{ Kind = 'unreal' } }
         }
     }
     if ((Test-Path (Join-Path $repo 'nexus.json')) -or (Test-Path (Join-Path $repo 'thunderstore.toml'))) { return $null }
+    foreach ($d in @($repo) + @(Get-ChildItem -LiteralPath $repo -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -notmatch '^\.' } | ForEach-Object { $_.FullName })) {
+        if (Get-ChildItem -LiteralPath $d -Filter *.uproject -File -ErrorAction SilentlyContinue | Select-Object -First 1) { return @{ Kind = 'unreal' } }
+    }
     $u = Get-UnityProject $repo
     if ($u) { return @{ Kind = 'unity'; Project = $u } }
     $apps = @(Get-DotnetApps $repo)
