@@ -1,31 +1,34 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Wakes a sleeping Azure web app and its serverless SQL database (MAT-T166, /kickstart).
+    Starts or wakes an Azure web app and its serverless SQL database (MAT-T166, MAT-T218, /kickstart).
 
 .DESCRIPTION
-    MindAttic's Azure apps run with Always On off: an app unloads after ~20 idle minutes and a serverless
-    database pauses after its auto-pause delay. Visiting the site wakes both eventually; this does it up front
-    and waits until both answer, so the first real visit is fast.
+    MindAttic's Azure apps are kept Stopped and brought up on demand; a running one has Always On off, so it
+    unloads after ~20 idle minutes (Gadfly stops itself once idle, GAD-T775), and a serverless database pauses
+    after its auto-pause delay. This starts a Stopped app (az webapp start), wakes its database and waits until
+    both answer, so the first real visit is fast.
 
-      kickstart.ps1                 list every web app with its state and its database's status
-      kickstart.ps1 <name>          wake one app (exact name, or a unique partial match: gadfly -> mindattic-gadfly)
-      kickstart.ps1 all             wake every app
+      kickstart.ps1                 list every web app with its state and its database's status (read-only)
+      kickstart.ps1 <name>          start/wake one app (exact name, or a unique partial match: gadfly -> mindattic-gadfly)
+      kickstart.ps1 all             start/wake every app
       kickstart.ps1 -Database a,b   wake only these Azure SQL databases (by name, on any server az can see);
                                     no web app is looked at. Used by MindAttic.Launcher's backup (M.LNCH-T137).
       kickstart.ps1 -ListDatabases  list every Azure SQL database with its server and status; wakes nothing.
       add -Json                     to any of the above for one JSON document on stdout instead of text
                                     (MindAttic.Launcher's Azure menu reads it, M.LNCH-T136):
                                       list:      [{ name, state, rg, url, database: { server, fqdn, name, status, sku } | null }]
-                                      wake:      { apps: [{ name, state, url, app, db, database }], urls: [...] }
+                                      wake:      { apps: [{ name, state, url, start, app, db, database }], urls: [...] }
+                                                 (start is null when the app was already Running)
                                       -Database: [{ server, fqdn, name, status, sku, result, online }]
                                       -ListDatabases: [{ server, fqdn, name, status, sku }]
 
     The app is woken by GETs to its site (/healthz if it answers, else /). The database is found from the
     app's connection strings (Server=...;Database=...), else by a database whose name matches the app's
     name, and is woken by opening one Entra-authenticated connection (SELECT 1) with the signed-in az
-    account's token. Read-only: it changes no setting, secret or resource. Nothing is printed from any
-    connection string but the server and database names.
+    account's token. The one change it makes is az webapp start on a named app that is Stopped; it changes
+    no setting or secret, and the listing changes nothing. Nothing is printed from any connection string but
+    the server and database names.
 #>
 [CmdletBinding()]
 param(
@@ -111,6 +114,14 @@ function Wake-App($app) {
     }
 }
 
+function Start-App($app) {
+    $started = Get-Date
+    $ErrorActionPreference = 'Continue'
+    $out = & az webapp start -g $app.rg -n $app.name 2>&1
+    if ($LASTEXITCODE -ne 0) { return "start failed: $(($out | Out-String).Trim().Split([Environment]::NewLine)[0])" }
+    return ('started ({0:0}s)' -f ((Get-Date) - $started).TotalSeconds)
+}
+
 function DbInfo($db) {
     if (-not $db) { return $null }
     [ordered]@{ server = $db.Server; fqdn = $db.Fqdn; name = $db.Name; status = $db.Status; sku = $db.Sku }
@@ -170,20 +181,27 @@ if ($Name -ine 'all' -and @($targets).Count -gt 1) { throw "kickstart: '$Name' m
 $ready = @()
 $woken = @()
 foreach ($a in @($targets)) {
+    $startResult = $null
     if ($a.state -ne 'Running') {
-        $msg = "the app is $($a.state) (stopped in Azure, not just asleep); start it with: az webapp start -g $($a.rg) -n $($a.name)"
-        if ($Json) { $woken += [ordered]@{ name = $a.name; state = $a.state; url = "https://$($a.host)"; app = $msg; db = $null; database = $null } }
-        else { "$($a.name): $msg" }
-        continue
+        if (-not $Json) { "$($a.name): $($a.state); starting it (az webapp start)" }
+        $startResult = Start-App $a
+        if ($startResult -notlike 'started*') {
+            if ($Json) { $woken += [ordered]@{ name = $a.name; state = $a.state; url = "https://$($a.host)"; start = $startResult; app = $null; db = $null; database = $null } }
+            else { "  start: $startResult" }
+            continue
+        }
     }
     $db = Find-Database $a
-    if (-not $Json) { "$($a.name): waking https://$($a.host)" + $(if ($db) { " and database $($db.Server)/$($db.Name) (was $($db.Status))" } else { ' (no database found)' }) }
-    $appResult = Wake-App $a
+    if (-not $Json) {
+        if ($startResult) { "  start: $startResult" }
+        "$($a.name): waking https://$($a.host)" + $(if ($db) { " and database $($db.Server)/$($db.Name) (was $($db.Status))" } else { ' (no database found)' })
+    }
     $dbResult = if ($db) { Wake-Database $db } else { '-' }
-    if ($Json) { $woken += [ordered]@{ name = $a.name; state = $a.state; url = "https://$($a.host)"; app = $appResult; db = $(if ($db) { $dbResult } else { $null }); database = (DbInfo $db) } }
+    $appResult = Wake-App $a
+    if ($Json) { $woken += [ordered]@{ name = $a.name; state = $a.state; url = "https://$($a.host)"; start = $startResult; app = $appResult; db = $(if ($db) { $dbResult } else { $null }); database = (DbInfo $db) } }
     else {
-        "  app: $appResult"
         if ($db) { "  db:  $dbResult" }
+        "  app: $appResult"
     }
     $ready += "https://$($a.host)"
 }
