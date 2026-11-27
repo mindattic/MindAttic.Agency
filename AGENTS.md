@@ -12,6 +12,9 @@ needs to be a GOLDEN RULE that everything follows."
   tests`), or "run the tests". `/commit` never runs them.
 - **Orchestrators and coordinators never instruct subagents to run suites or soaks.** A subagent started by
   a user's `/test` turn inherits that permission; no other subagent has it.
+- **The one exception is the Orchestrator daemon's feature test gate** (M.ORCH-T2398): like its main-line
+  suites (MainlineTests), it runs a repo's suite on `origin/main` with no LLM once an owner-assigned
+  `gate:tests` branch has no open task left. Agents still never run tests.
 - **Keep every CLI busy toward 98% of its 5-hour window** with real work instead of waiting on test runs.
 
 Enforced by `shared/hooks/test-gate.py` (MAT-T121; see "Tests run only when the user says so" below).
